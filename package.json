@@ -13,7 +13,10 @@
     "authorise-storage-unit-extension": "tsx ts-scripts/smart_gate_extension/authorise-storage-unit-extension.ts",
     "issue-tribe-jump-permit": "tsx ts-scripts/smart_gate_extension/issue-tribe-jump-permit.ts",
     "jump-with-permit": "tsx ts-scripts/smart_gate_extension/jump-with-permit.ts",
-    "collect-corpse-bounty": "tsx ts-scripts/smart_gate_extension/collect-corpse-bounty.ts"
+    "collect-corpse-bounty": "tsx ts-scripts/smart_gate_extension/collect-corpse-bounty.ts",
+    "configure-supply-terminal": "tsx ts-scripts/supply_terminal_extension/configure-listing.ts",
+    "authorise-supply-terminal": "tsx ts-scripts/supply_terminal_extension/authorise-extension.ts",
+    "supply-terminal-exchange": "tsx ts-scripts/supply_terminal_extension/exchange.ts"
   },
   "dependencies": {
     "@mysten/sui": "^2.0.0",

@@ -1,17 +1,9 @@
-import { Box, Container, Flex, Heading } from "@radix-ui/themes";
-import { WalletStatus } from "./WalletStatus";
+import { Box, Flex, Heading } from "@radix-ui/themes";
+import { SupplyTerminal } from "./components/SupplyTerminal/SupplyTerminal";
 import { abbreviateAddress, useConnection } from "@evefrontier/dapp-kit";
 import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 function App() {
-  /**
-   * STEP 2 — Wallet connection
-   *
-   * useConnection() (@evefrontier/dapp-kit) → handleConnect, handleDisconnect;
-   * isConnected, walletAddress, hasEveVault. useCurrentAccount()
-   * (@mysten/dapp-kit-react) → account (e.g. account.address) for UI. abbreviateAddress()
-   * (@evefrontier/dapp-kit) for display.
-   */
   const { handleConnect, handleDisconnect } = useConnection();
   const account = useCurrentAccount();
 
@@ -27,9 +19,8 @@ function App() {
           justifyContent: "space-between",
         }}
       >
-        <Heading>EVE Frontier dApp Starter Template</Heading>
+        <Heading>EVE Frontier dApp — Supply Terminal</Heading>
 
-        {/* STEP 2 — Connect/disconnect; show abbreviated address in header. */}
         <button
           onClick={() =>
             account?.address ? handleDisconnect() : handleConnect()
@@ -38,8 +29,8 @@ function App() {
           {account ? abbreviateAddress(account?.address) : "Connect Wallet"}
         </button>
       </Flex>
-      {/* STEP 3 — Same hooks (useConnection, useCurrentAccount) drive WalletStatus; state stays in sync. */}
-      <WalletStatus />
+
+      <SupplyTerminal />
     </Box>
   );
 }

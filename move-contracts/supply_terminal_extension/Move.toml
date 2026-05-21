@@ -1,0 +1,9 @@
+[package]
+name = "supply_terminal_extension"
+edition = "2024"
+
+[dependencies]
+world = { local = "../../../world-contracts/contracts/world" }
+
+[addresses]
+supply_terminal_extension = "0x0"
