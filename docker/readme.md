@@ -17,7 +17,14 @@ docker compose run --rm --service-ports sui-dev
 
 On first run the container creates three ed25519 keypairs (`ADMIN`, `PLAYER_A`, `PLAYER_B`). Keys persist across container restarts via a Docker volume.
 
-Every start spins up a fresh local Sui node and funds the accounts from the faucet.
+By default, the local Sui chain also persists across container restarts via the same Docker volume. Every start brings the persisted local node back up and funds the accounts from the faucet.
+
+To intentionally start from a fresh local chain:
+
+```bash
+cd docker
+SUI_FORCE_REGENESIS=true docker compose run --rm --service-ports sui-dev
+```
 
 ## What’s in the container
 
@@ -70,6 +77,7 @@ For TS scripts and world-contracts, manually fill in the `.env` files with your 
 | Switch network | `sui client switch --env testnet` |
 | Import a key | `sui keytool import <key> ed25519` |
 | Stop local node | `pkill -f "sui start"` |
+| Start fresh local chain | `SUI_FORCE_REGENESIS=true docker compose run --rm --service-ports sui-dev` |
 | Generate world-contracts .env | `/workspace/scripts/generate-world-env.sh` |
 | Build a contract | `cd /workspace/builder-scaffold/move-contracts/smart_gate_extension && sui move build -e testnet` |
 | Run TS scripts | `cd /workspace/builder-scaffold && pnpm configure-rules` |
@@ -91,7 +99,7 @@ The compose setup includes PostgreSQL indexer and GraphQL support via `docker-co
 
 **GraphQL endpoint**: `http://localhost:9125/graphql`
 
-The indexer database is **automatically reset** on each container start to match the `--force-regenesis` behavior, ensuring the blockchain and indexer state stay synchronized.
+The indexer database is reset only when a fresh localnet genesis is created: first run, missing localnet state, or `SUI_FORCE_REGENESIS=true`. Normal restarts keep the existing blockchain and indexer state synchronized.
 
 To query via GraphQL from your host:
 
@@ -103,12 +111,19 @@ curl -X POST http://localhost:9125/graphql \
 
 Or use a GraphQL client like [Altair](https://altairgraphql.dev/) or [Insomnia](https://insomnia.rest/).
 
-## Clean up / fresh start
+## Clean up / rebuild
 
 ```bash
 docker compose down
 docker compose build
 docker compose run --rm --service-ports sui-dev
+```
+
+For a fresh local chain while keeping the generated key addresses:
+
+```bash
+docker compose down
+SUI_FORCE_REGENESIS=true docker compose run --rm --service-ports sui-dev
 ```
 
 If you are still having problems you can stop the containers and do a full prune:

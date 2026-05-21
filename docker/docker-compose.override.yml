@@ -1,6 +1,6 @@
 # Adds PostgreSQL indexer and GraphQL support to the Sui dev environment.
-# Note: The database is automatically reset on each container start to match
-# the --force-regenesis behavior, ensuring blockchain and indexer stay in sync.
+# Note: The database is reset only when a fresh localnet genesis is created
+# (first run or SUI_FORCE_REGENESIS=true), keeping blockchain and indexer state in sync.
 
 services:
   postgres:

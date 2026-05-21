@@ -7,6 +7,20 @@ KEYSTORE="$SUI_CFG/sui.keystore"
 CLIENT_YAML="$SUI_CFG/client.yaml"
 INIT_MARKER="$SUI_CFG/.initialized"
 ENV_FILE="/workspace/builder-scaffold/docker/.env.sui"
+LOCALNET_DIR="${SUI_LOCALNET_DIR:-$SUI_CFG/localnet}"
+GENESIS_BLOB="$LOCALNET_DIR/genesis.blob"
+SUI_FORCE_REGENESIS="${SUI_FORCE_REGENESIS:-false}"
+
+should_force_regenesis() {
+  case "${1:-false}" in
+  true | TRUE | True | 1 | yes | YES | Yes | y | Y) return 0 ;;
+  false | FALSE | False | 0 | no | NO | No | n | N | "") return 1 ;;
+  *)
+    echo "[sui-dev] ERROR: SUI_FORCE_REGENESIS must be true or false, got '$1'" >&2
+    exit 1
+    ;;
+  esac
+}
 
 # ---------- first-run: create keys ----------
 if [ ! -f "$INIT_MARKER" ]; then
@@ -38,6 +52,22 @@ EOF
   done
   touch "$INIT_MARKER"
   echo "[sui-dev] Keys created."
+fi
+
+# ---------- localnet state ----------
+RESET_INDEXER_DB=0
+if should_force_regenesis "$SUI_FORCE_REGENESIS"; then
+  echo "[sui-dev] SUI_FORCE_REGENESIS=true; creating a fresh persisted localnet genesis..."
+  RESET_INDEXER_DB=1
+  mkdir -p "$LOCALNET_DIR"
+  sui genesis --working-dir "$LOCALNET_DIR" --with-faucet --force
+elif [ ! -f "$GENESIS_BLOB" ]; then
+  echo "[sui-dev] No persisted localnet genesis found; creating one..."
+  RESET_INDEXER_DB=1
+  mkdir -p "$LOCALNET_DIR"
+  sui genesis --working-dir "$LOCALNET_DIR" --with-faucet --force
+else
+  echo "[sui-dev] Using persisted localnet genesis at $GENESIS_BLOB."
 fi
 
 # ---------- wait for postgres ----------
@@ -84,29 +114,33 @@ if [ -n "${SUI_INDEXER_DB_URL:-}" ]; then
   # so we can DROP / CREATE the target database while no one is connected to it.
   ADMIN_DB_URL="$(printf '%s' "$SUI_INDEXER_DB_URL" | sed -E 's|(://[^/]*)/[^?]*|\1/postgres|')"
 
-  echo "[sui-dev] Resetting indexer database '$DB_NAME' before node start..."
+  if [ "$RESET_INDEXER_DB" -eq 1 ]; then
+    echo "[sui-dev] Resetting indexer database '$DB_NAME' before node start..."
 
-  # DB_NAME has been validated above (^[a-zA-Z_][a-zA-Z0-9_]{0,62}$), so it is
-  # safe to embed inside SQL double-quotes.  Standard double-quoting is used
-  # instead of psql :"variable" interpolation, which is unreliable across psql
-  # versions when passed via -c.
-  # ON_ERROR_STOP=1 ensures non-zero exit on SQL errors.
-  # stderr is intentionally NOT redirected so failures are fully visible.
-  psql "$ADMIN_DB_URL" \
-    --set ON_ERROR_STOP=1 \
-    -c "DROP DATABASE IF EXISTS \"${DB_NAME}\"" \
-    -c "CREATE DATABASE \"${DB_NAME}\""
+    # DB_NAME has been validated above (^[a-zA-Z_][a-zA-Z0-9_]{0,62}$), so it is
+    # safe to embed inside SQL double-quotes.  Standard double-quoting is used
+    # instead of psql :"variable" interpolation, which is unreliable across psql
+    # versions when passed via -c.
+    # ON_ERROR_STOP=1 ensures non-zero exit on SQL errors.
+    # stderr is intentionally NOT redirected so failures are fully visible.
+    psql "$ADMIN_DB_URL" \
+      --set ON_ERROR_STOP=1 \
+      -c "DROP DATABASE IF EXISTS \"${DB_NAME}\"" \
+      -c "CREATE DATABASE \"${DB_NAME}\""
 
-  echo "[sui-dev] Indexer database '$DB_NAME' ready."
+    echo "[sui-dev] Indexer database '$DB_NAME' ready."
+  else
+    echo "[sui-dev] Keeping existing indexer database '$DB_NAME'."
+  fi
 fi
 
 # ---------- start local node ----------
 echo "[sui-dev] Starting local Sui node..."
+SUI_START_ARGS=(--network.config "$LOCALNET_DIR" --with-faucet)
 if [ -n "${SUI_INDEXER_DB_URL:-}" ]; then
-  sui start --with-faucet --force-regenesis --with-indexer="$SUI_INDEXER_DB_URL" --with-graphql=0.0.0.0:9125 &
-else
-  sui start --with-faucet --force-regenesis &
+  SUI_START_ARGS+=(--with-indexer="$SUI_INDEXER_DB_URL" --with-graphql=0.0.0.0:9125)
 fi
+sui start "${SUI_START_ARGS[@]}" &
 NODE_PID=$!
 trap 'kill "$NODE_PID" 2>/dev/null || true' EXIT
 
