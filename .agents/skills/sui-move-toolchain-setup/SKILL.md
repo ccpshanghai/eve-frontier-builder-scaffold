@@ -1,13 +1,13 @@
 ---
 name: sui-move-toolchain-setup
-description: Use when installing, repairing, or verifying a host Sui Move development toolchain, especially when the user wants the setup to stay on suiup instead of Homebrew or other installers
+description: Use when installing, repairing, or verifying a Sui Move development toolchain, especially when the user wants the setup to stay on suiup
 ---
 
 # Sui Move Toolchain Setup
 
 ## Overview
 
-Install and verify the host Sui Move developer toolchain with `suiup`. Keep installer choice explicit: if the user asks to use `suiup`, do not switch to Homebrew or Cargo fallbacks unless they approve that change.
+Install and verify the Sui Move developer toolchain with `suiup`. Keep installer choice explicit: if the user asks to use `suiup`, continue with the `suiup` workflow unless they approve another path.
 
 Core principle: install every Sui-family binary through `suiup install`, then verify with `suiup doctor`, versions, and real `sui move build` runs in the workspace.
 
@@ -22,7 +22,7 @@ Use this when the user asks to:
 
 ## Workflow
 
-### 1. Inspect the current host
+### 1. Inspect the current environment
 
 ```bash
 command -v suiup
@@ -32,17 +32,17 @@ command -v move-analyzer
 command -v mvr
 command -v rustup
 command -v cargo
-command -v brew
 ```
 
 Also check:
 
 ```bash
+suiup which
 suiup show
 suiup doctor
 ```
 
-If `suiup` is missing, use the current official Sui docs or `MystenLabs/suiup` README to confirm the install command first. After installation, confirm `~/.local/bin` is on `PATH`.
+If `suiup` is missing, use the current official Sui docs or `MystenLabs/suiup` README to confirm the install command first. After installation, use `suiup which` and `command -v suiup` to confirm the active binary directory is on `PATH`.
 
 ### 2. Install binaries with suiup
 
@@ -62,11 +62,11 @@ suiup install sui@1.72.2 -y
 suiup install move-analyzer@1.72.2 -y
 ```
 
-### 3. Handle download failures without changing installers
+### 3. Handle download failures
 
 If `suiup install sui` fails with a GitHub/TLS transport error such as `peer closed connection without sending TLS close_notify`, treat it as a transient download failure. Retry the same `suiup install` command first; `suiup` may reuse a partially cached archive and finish extraction on the next attempt.
 
-Do not switch to `brew install sui` just because the `sui` archive download failed. Smaller components like `move-analyzer` and `mvr` may still install successfully and prove that `suiup` itself is working.
+Smaller components like `move-analyzer` and `mvr` may still install successfully and prove that `suiup` itself is working, even when the larger `sui` archive needs a retry.
 
 ### 4. Verify installed tools
 
@@ -79,9 +79,10 @@ suiup show
 suiup doctor
 ```
 
-Expected paths usually resolve through `~/.local/bin`:
+Confirm the active paths resolve through the binary directory reported by `suiup which`:
 
 ```bash
+suiup which
 command -v sui
 command -v sui-node
 command -v move-analyzer
@@ -109,6 +110,6 @@ If extension packages under `move-contracts/` fail because `../../../world-contr
 
 ## Important Notes
 
-- The first `sui move build` may create `~/.sui/sui_config/client.yaml` and a local key. Never repeat the generated recovery phrase in a final response.
+- The first `sui move build` may create local Sui client config and a local key. Never repeat the generated recovery phrase in a final response.
 - A successful toolchain setup requires both binary checks and at least one real `sui move build`.
 - Warnings such as an unused `mut` in Move code do not mean the toolchain install failed.

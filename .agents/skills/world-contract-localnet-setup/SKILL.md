@@ -7,7 +7,7 @@ description: Use when needing to set up a Sui localnet and deploy world-contract
 
 ## Overview
 
-Bootstrap a full Sui localnet with world-contracts deployed inside Docker — all without Sui tooling on the host. The process uses the pre-configured Docker environment in `docker/` and the world-contracts repo.
+Bootstrap a full Sui localnet with world-contracts deployed inside Docker, without requiring Sui tooling outside the container. The process uses the pre-configured Docker environment in `docker/` and the world-contracts repo.
 
 Core principle: **Reference the existing repo docs** for detailed steps; this skill provides the glue knowledge not obvious from reading them sequentially.
 
@@ -21,13 +21,13 @@ Core principle: **Reference the existing repo docs** for detailed steps; this sk
 
 ### Bind-mount requirement
 
-The `docker/compose.yml` bind-mounts `./world-contracts` into the container at `/workspace/world-contracts`. Therefore, **world-contracts must be cloned into `docker/world-contracts/` on the host before starting the container**:
+The `docker/compose.yml` bind-mounts `./world-contracts` into the container at `/workspace/world-contracts`. Therefore, **world-contracts must be cloned into `docker/world-contracts/` in the project checkout before starting the container**:
 
 ```bash
 git clone -b v0.0.18 https://github.com/evefrontier/world-contracts.git docker/world-contracts
 ```
 
-This is NOT explicitly stated in the sequential flow of `docs/builder-flow-docker.md` (which describes cloning inside the container). Cloning on the host ensures the directory is visible both inside and outside the container.
+This is NOT explicitly stated in the sequential flow of `docs/builder-flow-docker.md` (which describes cloning inside the container). Cloning in the project checkout ensures the directory is visible both inside and outside the container.
 
 ### First run vs subsequent runs
 
@@ -40,15 +40,15 @@ For a fresh chain while keeping keys, use `SUI_FORCE_REGENESIS=true` (see [docke
 
 ```
 /workspace/
-├── builder-scaffold/    # full repo (syncs with host)  
-└── world-contracts/     # bind mount (syncs with host docker/world-contracts/)
+├── builder-scaffold/    # full repo (syncs with project checkout)
+└── world-contracts/     # bind mount (syncs with docker/world-contracts/ outside the container)
 ```
 
-Keys are at `/workspace/builder-scaffold/docker/.env.sui` inside the container (and `docker/.env.sui` on host).
+Keys are at `/workspace/builder-scaffold/docker/.env.sui` inside the container and `docker/.env.sui` outside the container.
 
 ## Flow
 
-### 1. Clone world-contracts on host
+### 1. Clone world-contracts in the project checkout
 
 ```bash
 git clone -b v0.0.18 https://github.com/evefrontier/world-contracts.git docker/world-contracts
@@ -86,7 +86,7 @@ The `generate-world-env.sh` script copies container-generated keys from `docker/
 
 | Mistake | Fix |
 |---------|-----|
-| Cloning world-contracts inside container only (lost on exit) | Clone into `docker/world-contracts/` on host — it's bind-mounted |
+| Cloning world-contracts inside container only (lost on exit) | Clone into `docker/world-contracts/` outside the container; it is bind-mounted |
 | Forgetting to run `generate-world-env.sh` before deploy | Deploy scripts read `.env` — generate it first |
 | "Unpublished dependencies: World" when publishing custom contracts | Deploy world-contracts first, then pass the pubfile path (see [docker/readme.md — Troubleshooting](docker/readme.md)) |
 | Move.lock wrong env | `rm Move.lock && sui move build -e testnet` |
