@@ -18,9 +18,9 @@ export function EventLog({ events }: EventLogProps) {
                     <div className="st-eyebrow">EVENT LOG</div>
                     <div className="st-panel__note">Full-width bottom terminal panel.</div>
                 </div>
-                <div className="st-event-log__legend" aria-label="Event sources">
+                <div className="st-counter" aria-label="Event sources">
                     <span>LOCAL</span>
-                    <span>CHAIN</span>
+                    <span className="st-counter__ready">CHAIN</span>
                 </div>
             </header>
             <div className="st-event-log__body">

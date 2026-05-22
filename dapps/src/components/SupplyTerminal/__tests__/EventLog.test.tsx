@@ -25,6 +25,9 @@ describe("EventLog", () => {
         expect(screen.getByText("Full-width bottom terminal panel.")).toBeDefined();
         expect(screen.getByText("LOCAL")).toBeDefined();
         expect(screen.getByText("CHAIN")).toBeDefined();
+        const counter = section?.querySelector(".st-counter");
+        expect(counter).not.toBeNull();
+        expect(counter?.querySelector(".st-counter__ready")?.textContent).toBe("CHAIN");
         expect(screen.getByText("> Terminal inventory synchronized")).toBeDefined();
         expect(screen.getByText(/> Exchange completed/)).toBeDefined();
         expect(screen.getByText(/0xabcdef12\.\.\./)).toBeDefined();
