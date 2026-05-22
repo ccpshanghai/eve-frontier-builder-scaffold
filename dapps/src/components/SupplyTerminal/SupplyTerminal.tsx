@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useSmartObject, useConnection, isOwner } from "@evefrontier/dapp-kit";
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react";
 import { Transaction } from "@mysten/sui/transactions";
@@ -27,6 +27,7 @@ export function SupplyTerminal() {
     const [slotSold, setSlotSold] = useState(false);
     const [isAuthorizing, setIsAuthorizing] = useState(false);
     const [extensionAuthorized, setExtensionAuthorized] = useState(false);
+    const tradeInFlightRef = useRef(false);
 
     const playerPaymentQuantity = 100;
     const machineStockQuantity = slotSold ? 0 : 1;
@@ -61,6 +62,13 @@ export function SupplyTerminal() {
             tradeSubmitting,
         ],
     );
+    const currentSelectedTradeSlot = useMemo(
+        () =>
+            selectedTradeSlot
+                ? slots.find((slot) => slot.id === selectedTradeSlot.id) ?? null
+                : null,
+        [selectedTradeSlot, slots],
+    );
 
     const handleOpenTrade = useCallback(
         (slot: SupplyTerminalSlot) => {
@@ -85,8 +93,29 @@ export function SupplyTerminal() {
 
     const handleConfirmTrade = useCallback(
         async (slot: SupplyTerminalSlot) => {
+            if (tradeInFlightRef.current || tradeSubmitting) {
+                return;
+            }
+
+            const currentSlot = slots.find(
+                (candidate) =>
+                    candidate.id === slot.id && candidate.index === slot.index,
+            );
+
+            if (!currentSlot?.canTrade) {
+                const message = "Selected slot is no longer available for trade";
+
+                setTradeError(message);
+                addEvent({
+                    type: "local",
+                    message: `Exchange blocked: ${message}`,
+                });
+                return;
+            }
+
             if (!assembly || !account) return;
 
+            tradeInFlightRef.current = true;
             setTradeSubmitting(true);
             setTradeError(null);
             addEvent({
@@ -123,10 +152,11 @@ export function SupplyTerminal() {
                     message: `Exchange failed: ${message}`,
                 });
             } finally {
+                tradeInFlightRef.current = false;
                 setTradeSubmitting(false);
             }
         },
-        [account, addEvent, assembly, dAppKit],
+        [account, addEvent, assembly, dAppKit, slots, tradeSubmitting],
     );
 
     const handleAuthorize = useCallback(async () => {
@@ -195,7 +225,7 @@ export function SupplyTerminal() {
             isAuthorizing={isAuthorizing}
             slots={slots}
             events={events}
-            selectedTradeSlot={selectedTradeSlot}
+            selectedTradeSlot={currentSelectedTradeSlot}
             tradeSubmitting={tradeSubmitting}
             tradeError={tradeError}
             onAuthorize={handleAuthorize}
