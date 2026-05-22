@@ -1,5 +1,4 @@
 :root {
-    color-scheme: dark;
     --st-bg: #060504;
     --st-surface: rgba(14, 11, 8, 0.96);
     --st-surface-soft: rgba(8, 7, 6, 0.82);
@@ -7,7 +6,7 @@
     --st-line-strong: #7d5935;
     --st-text: #f3ecd2;
     --st-muted: #a39782;
-    --st-dim: #665d50;
+    --st-dim: #8f8370;
     --st-orange: #e8792a;
     --st-orange-soft: rgba(232, 121, 42, 0.12);
     --st-green: #8fe0aa;
@@ -19,6 +18,7 @@
 .st-terminal-shell,
 .st-screen-message {
     box-sizing: border-box;
+    color-scheme: dark;
     color: var(--st-text);
     font-family:
         ui-monospace,
@@ -592,6 +592,10 @@
 
     .st-terminal__content {
         padding: 12px;
+    }
+
+    .st-slot-grid {
+        grid-template-columns: 1fr;
     }
 
     .st-slot__body {
