@@ -6,6 +6,7 @@ import { buildSupplyTerminalSlots } from "./slots";
 import { SupplyTerminalView } from "./SupplyTerminalView";
 import type { ExchangeEvent, SupplyTerminalSlot } from "./types";
 import { SUPPLY_TERMINAL_CONFIG } from "./config";
+import "./SupplyTerminal.css";
 
 export function SupplyTerminal() {
     const { assembly, loading, error: smartObjectError } = useSmartObject();
