@@ -1,3 +1,4 @@
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { SupplyTerminalSlot } from "./types";
 
 interface TradeConfirmDialogProps {
@@ -16,6 +17,15 @@ function formatItem(item: { name: string; quantity: number }): string {
     return `${item.name} x${item.quantity}`;
 }
 
+function getEnabledActions(
+    cancelButton: HTMLButtonElement | null,
+    confirmButton: HTMLButtonElement | null,
+): HTMLButtonElement[] {
+    return [cancelButton, confirmButton].filter(
+        (button): button is HTMLButtonElement => Boolean(button && !button.disabled),
+    );
+}
+
 export function TradeConfirmDialog({
     slot,
     submitting,
@@ -23,6 +33,34 @@ export function TradeConfirmDialog({
     onCancel,
     onConfirm,
 }: TradeConfirmDialogProps) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const cancelButtonRef = useRef<HTMLButtonElement>(null);
+    const confirmButtonRef = useRef<HTMLButtonElement>(null);
+    const previousFocusRef = useRef<HTMLElement | null>(null);
+    const isOpen = Boolean(slot?.reward && slot.price);
+    const canConfirm = Boolean(slot?.canTrade) && !submitting;
+
+    useEffect(() => {
+        if (!isOpen) {
+            return undefined;
+        }
+
+        previousFocusRef.current =
+            document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+
+        const focusTarget =
+            getEnabledActions(cancelButtonRef.current, confirmButtonRef.current)[0] ??
+            dialogRef.current;
+        focusTarget?.focus();
+
+        return () => {
+            previousFocusRef.current?.focus();
+            previousFocusRef.current = null;
+        };
+    }, [isOpen]);
+
     if (!slot?.reward || !slot.price) {
         return null;
     }
@@ -31,20 +69,64 @@ export function TradeConfirmDialog({
     const confirmLabel = submitting ? "SUBMITTING" : "CONFIRM TRADE";
 
     function handleConfirm() {
-        if (!slot || submitting) {
+        if (!slot || !slot.canTrade || submitting) {
             return;
         }
 
         onConfirm(slot);
     }
 
+    function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+        if (event.key === "Escape") {
+            if (!submitting) {
+                event.preventDefault();
+                onCancel();
+            }
+            return;
+        }
+
+        if (event.key !== "Tab") {
+            return;
+        }
+
+        const enabledActions = getEnabledActions(
+            cancelButtonRef.current,
+            confirmButtonRef.current,
+        );
+
+        event.preventDefault();
+
+        if (enabledActions.length === 0) {
+            dialogRef.current?.focus();
+            return;
+        }
+
+        const activeElement = document.activeElement;
+        const activeIndex =
+            activeElement instanceof HTMLButtonElement
+                ? enabledActions.indexOf(activeElement)
+                : -1;
+        const nextIndex = event.shiftKey
+            ? activeIndex <= 0
+                ? enabledActions.length - 1
+                : activeIndex - 1
+            : activeIndex === -1 || activeIndex === enabledActions.length - 1
+              ? 0
+              : activeIndex + 1;
+
+        enabledActions[nextIndex]?.focus();
+    }
+
     return (
         <div className="st-modal-backdrop">
             <div
+                ref={dialogRef}
                 className="st-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Confirm trade"
+                tabIndex={-1}
+                onKeyDown={handleKeyDown}
             >
                 <div className="st-modal__head">
                     <div>
@@ -76,6 +158,7 @@ export function TradeConfirmDialog({
 
                     <div className="st-modal__actions">
                         <button
+                            ref={cancelButtonRef}
                             type="button"
                             className="st-button st-button--secondary"
                             disabled={submitting}
@@ -84,9 +167,10 @@ export function TradeConfirmDialog({
                             CANCEL
                         </button>
                         <button
+                            ref={confirmButtonRef}
                             type="button"
                             className="st-button"
-                            disabled={submitting}
+                            disabled={!canConfirm}
                             onClick={handleConfirm}
                         >
                             {confirmLabel}

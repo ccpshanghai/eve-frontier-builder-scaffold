@@ -112,6 +112,116 @@ describe("TradeConfirmDialog", () => {
         expect(onConfirm).not.toHaveBeenCalled();
     });
 
+    it("moves focus to the first enabled action and restores previous focus on unmount", () => {
+        const opener = document.createElement("button");
+        opener.textContent = "Open trade";
+        document.body.appendChild(opener);
+        opener.focus();
+
+        const { unmount } = render(
+            <TradeConfirmDialog
+                slot={createSlot()}
+                submitting={false}
+                error={null}
+                onCancel={() => {}}
+                onConfirm={() => {}}
+            />,
+        );
+
+        expect(screen.getByRole("button", { name: "CANCEL" })).toBe(
+            document.activeElement,
+        );
+
+        unmount();
+
+        expect(opener).toBe(document.activeElement);
+        opener.remove();
+    });
+
+    it("calls cancel on Escape when not submitting", () => {
+        const onCancel = vi.fn();
+
+        render(
+            <TradeConfirmDialog
+                slot={createSlot()}
+                submitting={false}
+                error={null}
+                onCancel={onCancel}
+                onConfirm={() => {}}
+            />,
+        );
+
+        fireEvent.keyDown(screen.getByRole("dialog", { name: "Confirm trade" }), {
+            key: "Escape",
+        });
+
+        expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it("ignores Escape while submitting", () => {
+        const onCancel = vi.fn();
+
+        render(
+            <TradeConfirmDialog
+                slot={createSlot()}
+                submitting={true}
+                error={null}
+                onCancel={onCancel}
+                onConfirm={() => {}}
+            />,
+        );
+
+        fireEvent.keyDown(screen.getByRole("dialog", { name: "Confirm trade" }), {
+            key: "Escape",
+        });
+
+        expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it("traps Tab focus within enabled dialog actions", () => {
+        render(
+            <TradeConfirmDialog
+                slot={createSlot()}
+                submitting={false}
+                error={null}
+                onCancel={() => {}}
+                onConfirm={() => {}}
+            />,
+        );
+
+        const dialog = screen.getByRole("dialog", { name: "Confirm trade" });
+        const cancel = screen.getByRole("button", { name: "CANCEL" });
+        const confirm = screen.getByRole("button", { name: "CONFIRM TRADE" });
+
+        confirm.focus();
+        fireEvent.keyDown(dialog, { key: "Tab" });
+        expect(cancel).toBe(document.activeElement);
+
+        fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+        expect(confirm).toBe(document.activeElement);
+    });
+
+    it("disables confirm for a non-tradable selected slot with reward and price", () => {
+        const onConfirm = vi.fn();
+
+        render(
+            <TradeConfirmDialog
+                slot={createSlot({ canTrade: false })}
+                submitting={false}
+                error={null}
+                onCancel={() => {}}
+                onConfirm={onConfirm}
+            />,
+        );
+
+        const confirm = screen.getByRole("button", { name: "CONFIRM TRADE" });
+        expect(confirm.hasAttribute("disabled")).toBe(true);
+
+        fireEvent.click(confirm);
+
+        expect(onConfirm).not.toHaveBeenCalled();
+    });
+
     it("renders nothing when a selected slot lacks reward or price", () => {
         const missingReward = render(
             <TradeConfirmDialog
