@@ -9,6 +9,7 @@ export interface ListingConfig {
 export type ExchangeState =
     | "idle"
     | "selected"
+    | "payment_staged"
     | "submitting"
     | "completed"
     | "failed";

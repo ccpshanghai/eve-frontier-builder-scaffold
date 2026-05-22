@@ -66,6 +66,23 @@ describe("buildSupplyTerminalSlots", () => {
         });
     });
 
+    it("disables Slot 01 when the listing is disabled", () => {
+        const slots = buildSupplyTerminalSlots({
+            paymentAvailable: true,
+            machineStockAvailable: true,
+            listingEnabled: false,
+            extensionAuthorized: true,
+            submitting: false,
+            sold: false,
+        });
+
+        expect(slots[0]).toMatchObject({
+            status: "listing_disabled",
+            canTrade: false,
+            disabledReason: "Listing disabled",
+        });
+    });
+
     it("disables Slot 01 when machine stock is unavailable", () => {
         const slots = buildSupplyTerminalSlots({
             paymentAvailable: true,
@@ -97,6 +114,23 @@ describe("buildSupplyTerminalSlots", () => {
             status: "extension_not_authorized",
             canTrade: false,
             disabledReason: "Extension authorization required",
+        });
+    });
+
+    it("disables Slot 01 while an exchange is submitting", () => {
+        const slots = buildSupplyTerminalSlots({
+            paymentAvailable: true,
+            machineStockAvailable: true,
+            listingEnabled: true,
+            extensionAuthorized: true,
+            submitting: true,
+            sold: false,
+        });
+
+        expect(slots[0]).toMatchObject({
+            status: "submitting",
+            canTrade: false,
+            disabledReason: "Exchange in progress",
         });
     });
 
