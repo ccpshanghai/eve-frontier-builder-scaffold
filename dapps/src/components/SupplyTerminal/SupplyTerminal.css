@@ -229,6 +229,10 @@
     color: var(--st-green);
 }
 
+.st-chip .st-ok {
+    margin-left: 4px;
+}
+
 .st-slot-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
