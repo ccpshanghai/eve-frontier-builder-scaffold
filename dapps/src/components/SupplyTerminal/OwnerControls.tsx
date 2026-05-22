@@ -18,11 +18,11 @@ export function OwnerControls({
     if (extensionAuthorized) {
         return (
             <div className="st-auth-banner st-auth-banner--ok">
-                <div className="st-auth-copy">
+                <div className="st-auth-banner__copy">
                     <span className="st-pulse st-pulse--ok" aria-hidden="true" />
                     <div>
-                        <div className="st-auth-title">EXTENSION AUTHORIZED</div>
-                        <div className="st-auth-detail">Terminal item movement is enabled.</div>
+                        <div className="st-auth-banner__title">EXTENSION AUTHORIZED</div>
+                        <div className="st-auth-banner__detail">Terminal item movement is enabled.</div>
                     </div>
                 </div>
                 <button className="st-button st-button--secondary" type="button" onClick={onConfigure}>
@@ -34,11 +34,11 @@ export function OwnerControls({
 
     return (
         <div className="st-auth-banner">
-            <div className="st-auth-copy">
+            <div className="st-auth-banner__copy">
                 <span className="st-pulse" aria-hidden="true" />
                 <div>
-                    <div className="st-auth-title">EXTENSION NOT AUTHORIZED</div>
-                    <div className="st-auth-detail">
+                    <div className="st-auth-banner__title">EXTENSION NOT AUTHORIZED</div>
+                    <div className="st-auth-banner__detail">
                         Owner action required before terminal item movement.
                     </div>
                 </div>

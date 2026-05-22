@@ -34,10 +34,18 @@ describe("OwnerControls", () => {
         const banner = screen.getByText("EXTENSION NOT AUTHORIZED").closest(".st-auth-banner");
         expect(banner).toBeDefined();
         expect(banner?.className).toBe("st-auth-banner");
-        expect(screen.getByText("Owner action required before terminal item movement.")).toBeDefined();
+
+        const copy = banner?.querySelector(".st-auth-banner__copy");
+        expect(copy).not.toBeNull();
+
+        const title = screen.getByText("EXTENSION NOT AUTHORIZED");
+        expect(title.className).toBe("st-auth-banner__title");
+
+        const detail = screen.getByText("Owner action required before terminal item movement.");
+        expect(detail.className).toBe("st-auth-banner__detail");
 
         const pulse = banner?.querySelector(".st-pulse");
-        expect(pulse).toBeDefined();
+        expect(pulse).not.toBeNull();
         expect(pulse?.className).toBe("st-pulse");
 
         const button = screen.getByRole("button", { name: "AUTHORIZE" });
@@ -88,10 +96,18 @@ describe("OwnerControls", () => {
         const banner = screen.getByText("EXTENSION AUTHORIZED").closest(".st-auth-banner");
         expect(banner).toBeDefined();
         expect(banner?.className).toBe("st-auth-banner st-auth-banner--ok");
-        expect(screen.getByText("Terminal item movement is enabled.")).toBeDefined();
+
+        const copy = banner?.querySelector(".st-auth-banner__copy");
+        expect(copy).not.toBeNull();
+
+        const title = screen.getByText("EXTENSION AUTHORIZED");
+        expect(title.className).toBe("st-auth-banner__title");
+
+        const detail = screen.getByText("Terminal item movement is enabled.");
+        expect(detail.className).toBe("st-auth-banner__detail");
 
         const pulse = banner?.querySelector(".st-pulse");
-        expect(pulse).toBeDefined();
+        expect(pulse).not.toBeNull();
         expect(pulse?.className).toBe("st-pulse st-pulse--ok");
 
         const button = screen.getByRole("button", { name: "CONFIGURE" });
