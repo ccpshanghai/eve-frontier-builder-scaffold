@@ -1,15 +1,10 @@
-import { useState, useCallback } from "react";
-import { Box, Grid } from "@radix-ui/themes";
+import { useCallback, useMemo, useState } from "react";
 import { useSmartObject, useConnection, isOwner } from "@evefrontier/dapp-kit";
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react";
 import { Transaction } from "@mysten/sui/transactions";
-import { ProductPanel } from "./ProductPanel";
-import { PurchasePanel } from "./PurchasePanel";
-import { InventoryPanel } from "./InventoryPanel";
-import { MachinePanel } from "./MachinePanel";
-import { EventLog } from "./EventLog";
-import { OwnerControls } from "./OwnerControls";
-import { ExchangeState, ExchangeEvent } from "./types";
+import { buildSupplyTerminalSlots } from "./slots";
+import { SupplyTerminalView } from "./SupplyTerminalView";
+import type { ExchangeEvent, SupplyTerminalSlot } from "./types";
 import { SUPPLY_TERMINAL_CONFIG } from "./config";
 
 export function SupplyTerminal() {
@@ -18,138 +13,196 @@ export function SupplyTerminal() {
     const account = useCurrentAccount();
     const dAppKit = useDAppKit();
 
-    // State
-    const [exchangeState, setExchangeState] = useState<ExchangeState>("idle");
-    const [selected, setSelected] = useState(false);
-    const [events, setEvents] = useState<ExchangeEvent[]>([]);
+    const [events, setEvents] = useState<ExchangeEvent[]>([
+        {
+            type: "local",
+            message: "Terminal inventory synchronized",
+            timestamp: Date.now(),
+        },
+    ]);
+    const [selectedTradeSlot, setSelectedTradeSlot] =
+        useState<SupplyTerminalSlot | null>(null);
+    const [tradeSubmitting, setTradeSubmitting] = useState(false);
+    const [tradeError, setTradeError] = useState<string | null>(null);
+    const [slotSold, setSlotSold] = useState(false);
     const [isAuthorizing, setIsAuthorizing] = useState(false);
-
-    // TODO: Replace placeholders with actual GraphQL queries for inventory
-    const [playerFeldspar] = useState(0);
-    const [playerCarbonWeave] = useState(0);
-    const [machineStock] = useState(0);
-    const [machineRevenue] = useState(0);
-    const [machineOnline] = useState(false);
     const [extensionAuthorized, setExtensionAuthorized] = useState(false);
 
+    const playerPaymentQuantity = 100;
+    const machineStockQuantity = slotSold ? 0 : 1;
+    const listingEnabled = true;
     const owner = isOwner(assembly, account?.address);
 
-    const addEvent = useCallback((e: ExchangeEvent) => {
-        setEvents(prev => [...prev, { ...e, timestamp: Date.now() }]);
+    const addEvent = useCallback((event: Omit<ExchangeEvent, "timestamp">) => {
+        setEvents((previousEvents) => [
+            ...previousEvents,
+            { ...event, timestamp: Date.now() },
+        ]);
     }, []);
 
-    const handleSelect = () => {
-        setSelected(true);
-        setExchangeState("selected");
-        addEvent({ type: "local", message: `Product selected: ${SUPPLY_TERMINAL_CONFIG.product.name}`, timestamp: 0 });
-    };
+    const slots = useMemo(
+        () =>
+            buildSupplyTerminalSlots({
+                paymentAvailable:
+                    playerPaymentQuantity >= SUPPLY_TERMINAL_CONFIG.payment.quantity,
+                machineStockAvailable:
+                    machineStockQuantity >= SUPPLY_TERMINAL_CONFIG.product.quantity,
+                listingEnabled,
+                extensionAuthorized,
+                submitting: tradeSubmitting,
+                sold: slotSold,
+            }),
+        [
+            extensionAuthorized,
+            listingEnabled,
+            machineStockQuantity,
+            playerPaymentQuantity,
+            slotSold,
+            tradeSubmitting,
+        ],
+    );
 
-    const handleStagePayment = () => {
-        setExchangeState("payment_staged");
-        addEvent({ type: "local", message: `Payment staged: ${SUPPLY_TERMINAL_CONFIG.payment.name} x${SUPPLY_TERMINAL_CONFIG.payment.quantity}`, timestamp: 0 });
-    };
+    const handleOpenTrade = useCallback(
+        (slot: SupplyTerminalSlot) => {
+            setSelectedTradeSlot(slot);
+            setTradeError(null);
+            addEvent({
+                type: "local",
+                message: `${slot.label} trade confirmation opened`,
+            });
+        },
+        [addEvent],
+    );
 
-    const handleCancel = () => {
-        setSelected(false);
-        setExchangeState("idle");
-        addEvent({ type: "local", message: "Purchase cancelled before confirmation", timestamp: 0 });
-    };
+    const handleCancelTrade = useCallback(() => {
+        setSelectedTradeSlot(null);
+        setTradeError(null);
+        addEvent({
+            type: "local",
+            message: "Trade confirmation cancelled",
+        });
+    }, [addEvent]);
 
-    const handleConfirmExchange = async () => {
-        if (!assembly || !account) return;
+    const handleConfirmTrade = useCallback(
+        async (slot: SupplyTerminalSlot) => {
+            if (!assembly || !account) return;
 
-        setExchangeState("submitting");
-        addEvent({ type: "local", message: "Exchange submitted", timestamp: 0 });
+            setTradeSubmitting(true);
+            setTradeError(null);
+            addEvent({
+                type: "local",
+                message: "Awaiting wallet confirmation",
+            });
 
-        try {
-            const tx = new Transaction();
-            tx.setSender(account.address);
+            try {
+                const tx = new Transaction();
+                tx.setSender(account.address);
 
-            // TODO: Build actual exchange transaction with real IDs
-            const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
+                const result = await dAppKit.signAndExecuteTransaction({
+                    transaction: tx,
+                });
+                const digest = (result as Record<string, unknown>).digest;
 
-            setExchangeState("completed");
-            addEvent({ type: "chain", message: "Payment accepted", timestamp: 0 });
-            addEvent({ type: "chain", message: "Product dispensed", timestamp: 0 });
-            addEvent({ type: "chain", message: `Exchange completed — ${(result as Record<string, unknown>).digest || "done"}`, timestamp: 0 });
-        } catch (err) {
-            setExchangeState("failed");
-            const msg = (err as Error).message || String(err);
-            addEvent({ type: "local", message: `Confirm failed: ${msg}`, timestamp: 0 });
-        }
-    };
+                setSlotSold(true);
+                setSelectedTradeSlot(null);
+                addEvent({
+                    type: "chain",
+                    message: "Exchange complete",
+                    ...(typeof digest === "string" ? { digest } : {}),
+                });
+                addEvent({
+                    type: "local",
+                    message: `${slot.label} empty`,
+                });
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
 
-    const handleAuthorize = async () => {
+                setTradeError(message);
+                addEvent({
+                    type: "local",
+                    message: `Exchange failed: ${message}`,
+                });
+            } finally {
+                setTradeSubmitting(false);
+            }
+        },
+        [account, addEvent, assembly, dAppKit],
+    );
+
+    const handleAuthorize = useCallback(async () => {
         if (!assembly || !account) return;
 
         setIsAuthorizing(true);
+
         try {
             const tx = new Transaction();
             tx.setSender(account.address);
 
-            // TODO: Build actual authorize_extension transaction
-            const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
+            const result = await dAppKit.signAndExecuteTransaction({
+                transaction: tx,
+            });
+            const digest = (result as Record<string, unknown>).digest;
+
             setExtensionAuthorized(true);
-            addEvent({ type: "chain", message: `Extension authorized — ${(result as Record<string, unknown>).digest || "done"}`, timestamp: 0 });
+            addEvent({
+                type: "chain",
+                message: "Extension authorized",
+                ...(typeof digest === "string" ? { digest } : {}),
+            });
         } catch (err) {
-            addEvent({ type: "local", message: `Authorization failed: ${(err as Error).message}`, timestamp: 0 });
+            const message = err instanceof Error ? err.message : String(err);
+
+            addEvent({
+                type: "local",
+                message: `Authorization failed: ${message}`,
+            });
         } finally {
             setIsAuthorizing(false);
         }
-    };
+    }, [account, addEvent, assembly, dAppKit]);
 
-    const handleConfigure = () => {
-        // TODO: Open configure dialog for listing rules (future)
-        addEvent({ type: "local", message: "Configure panel not yet implemented", timestamp: 0 });
-    };
+    const handleConfigure = useCallback(() => {
+        addEvent({
+            type: "local",
+            message: "Configure entry selected",
+        });
+    }, [addEvent]);
 
-    if (loading) return <div>Loading assembly...</div>;
-    if (smartObjectError) return <div>Error: {smartObjectError}</div>;
-    if (!assembly) return <div>No assembly found</div>;
-    if (!isConnected) return <div>Connect your wallet to use the Supply Terminal</div>;
+    if (loading) {
+        return <div className="st-screen-message">Loading assembly...</div>;
+    }
+
+    if (smartObjectError) {
+        return <div className="st-screen-message">Error: {smartObjectError}</div>;
+    }
+
+    if (!assembly) {
+        return <div className="st-screen-message">No assembly found</div>;
+    }
+
+    if (!isConnected) {
+        return (
+            <div className="st-screen-message">
+                Connect your wallet to use the Supply Terminal
+            </div>
+        );
+    }
 
     return (
-        <Box>
-            {/* Owner-only: authorize banner + configure button */}
-            <OwnerControls
-                isOwner={owner}
-                extensionAuthorized={extensionAuthorized}
-                onAuthorize={handleAuthorize}
-                isAuthorizing={isAuthorizing}
-                onConfigure={handleConfigure}
-            />
-
-            <Grid columns="2" gap="4" mt="4">
-                <ProductPanel
-                    stock={machineStock}
-                    onSelect={handleSelect}
-                    selected={selected}
-                    disabled={!isConnected || exchangeState === "submitting"}
-                />
-                <InventoryPanel
-                    feldsparCrystals={playerFeldspar}
-                    carbonWeave={playerCarbonWeave}
-                />
-                <PurchasePanel
-                    selected={selected}
-                    playerFeldspar={playerFeldspar}
-                    machineStock={machineStock}
-                    exchangeState={exchangeState}
-                    onStagePayment={handleStagePayment}
-                    onConfirmExchange={handleConfirmExchange}
-                    onCancel={handleCancel}
-                />
-                <MachinePanel
-                    carbonWeaveStock={machineStock}
-                    feldsparCrystalsRevenue={machineRevenue}
-                    online={machineOnline}
-                    extensionAuthorized={extensionAuthorized}
-                />
-            </Grid>
-
-            <Box mt="4">
-                <EventLog events={events} />
-            </Box>
-        </Box>
+        <SupplyTerminalView
+            isOwner={owner}
+            extensionAuthorized={extensionAuthorized}
+            isAuthorizing={isAuthorizing}
+            slots={slots}
+            events={events}
+            selectedTradeSlot={selectedTradeSlot}
+            tradeSubmitting={tradeSubmitting}
+            tradeError={tradeError}
+            onAuthorize={handleAuthorize}
+            onConfigure={handleConfigure}
+            onOpenTrade={handleOpenTrade}
+            onCancelTrade={handleCancelTrade}
+            onConfirmTrade={handleConfirmTrade}
+        />
     );
 }
