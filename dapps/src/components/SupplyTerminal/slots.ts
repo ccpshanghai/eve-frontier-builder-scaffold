@@ -6,6 +6,7 @@ import {
 import type {
     BuildSupplyTerminalSlotsInput,
     SupplyTerminalSlot,
+    SupplyTerminalSlotItem,
     SupplyTerminalSlotStatus,
 } from "./types";
 
@@ -22,6 +23,14 @@ function createEmptySlot(index: number): SupplyTerminalSlot {
         label: `SLOT ${slotNumber}`,
         status: "empty",
         canTrade: false,
+    };
+}
+
+function createSlotItem(item: SupplyTerminalSlotItem): SupplyTerminalSlotItem {
+    return {
+        name: item.name,
+        sandboxItemId: item.sandboxItemId,
+        quantity: item.quantity,
     };
 }
 
@@ -45,14 +54,14 @@ function getBlockedSlotState(
     if (!input.machineStockAvailable) {
         return {
             status: "out_of_stock",
-            disabledReason: "Carbon Weave unavailable",
+            disabledReason: `${SUPPLY_TERMINAL_CONFIG.product.name} unavailable`,
         };
     }
 
     if (!input.paymentAvailable) {
         return {
             status: "insufficient_payment",
-            disabledReason: "Requires Feldspar Crystals x10",
+            disabledReason: `Requires ${SUPPLY_TERMINAL_CONFIG.payment.name} x${SUPPLY_TERMINAL_CONFIG.payment.quantity}`,
         };
     }
 
@@ -82,8 +91,8 @@ function createActiveSlot(input: BuildSupplyTerminalSlotsInput): SupplyTerminalS
     return {
         ...baseSlot,
         status,
-        reward: SUPPLY_TERMINAL_CONFIG.product,
-        price: SUPPLY_TERMINAL_CONFIG.payment,
+        reward: createSlotItem(SUPPLY_TERMINAL_CONFIG.product),
+        price: createSlotItem(SUPPLY_TERMINAL_CONFIG.payment),
         canTrade: status === "ready",
         disabledReason: blockedState?.disabledReason,
     };

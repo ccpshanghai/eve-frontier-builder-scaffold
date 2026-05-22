@@ -25,6 +25,30 @@ describe("buildSupplyTerminalSlots", () => {
         expect(slots.slice(1).every((slot) => slot.canTrade === false)).toBe(true);
     });
 
+    it("returns copies of configured reward and price items", () => {
+        const slots = buildSupplyTerminalSlots({
+            paymentAvailable: true,
+            machineStockAvailable: true,
+            listingEnabled: true,
+            extensionAuthorized: true,
+            submitting: false,
+            sold: false,
+        });
+        const rebuiltSlots = buildSupplyTerminalSlots({
+            paymentAvailable: true,
+            machineStockAvailable: true,
+            listingEnabled: true,
+            extensionAuthorized: true,
+            submitting: false,
+            sold: false,
+        });
+
+        expect(slots[0].reward).toEqual(rebuiltSlots[0].reward);
+        expect(slots[0].price).toEqual(rebuiltSlots[0].price);
+        expect(slots[0].reward).not.toBe(rebuiltSlots[0].reward);
+        expect(slots[0].price).not.toBe(rebuiltSlots[0].price);
+    });
+
     it("disables Slot 01 when payment is unavailable", () => {
         const slots = buildSupplyTerminalSlots({
             paymentAvailable: false,
@@ -39,6 +63,23 @@ describe("buildSupplyTerminalSlots", () => {
             status: "insufficient_payment",
             canTrade: false,
             disabledReason: "Requires Feldspar Crystals x10",
+        });
+    });
+
+    it("disables Slot 01 when machine stock is unavailable", () => {
+        const slots = buildSupplyTerminalSlots({
+            paymentAvailable: true,
+            machineStockAvailable: false,
+            listingEnabled: true,
+            extensionAuthorized: true,
+            submitting: false,
+            sold: false,
+        });
+
+        expect(slots[0]).toMatchObject({
+            status: "out_of_stock",
+            canTrade: false,
+            disabledReason: "Carbon Weave unavailable",
         });
     });
 
@@ -59,7 +100,7 @@ describe("buildSupplyTerminalSlots", () => {
         });
     });
 
-    it("renders Slot 01 as empty after it has been sold in the current session", () => {
+    it("renders Slot 01 as sold after it has been purchased in the current session", () => {
         const slots = buildSupplyTerminalSlots({
             paymentAvailable: true,
             machineStockAvailable: true,

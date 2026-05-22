@@ -31,9 +31,9 @@ export type SupplyTerminalSlotStatus =
     | "sold";
 
 export interface SupplyTerminalSlotItem {
-    name: string;
-    sandboxItemId: number;
-    quantity: number;
+    readonly name: string;
+    readonly sandboxItemId: number;
+    readonly quantity: number;
 }
 
 export interface SupplyTerminalSlot {
