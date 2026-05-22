@@ -8,6 +8,7 @@ export interface SupplyTerminalViewProps {
     isOwner: boolean;
     extensionAuthorized: boolean;
     isAuthorizing: boolean;
+    walletAddress: string | null;
     slots: SupplyTerminalSlot[];
     events: ExchangeEvent[];
     selectedTradeSlot: SupplyTerminalSlot | null;
@@ -24,6 +25,7 @@ export function SupplyTerminalView({
     isOwner,
     extensionAuthorized,
     isAuthorizing,
+    walletAddress,
     slots,
     events,
     selectedTradeSlot,
@@ -47,8 +49,12 @@ export function SupplyTerminalView({
                 </div>
 
                 <div className="st-terminal__status" aria-label="Terminal status">
-                    <span className="st-chip st-ok">STORAGE ONLINE</span>
-                    <span className="st-chip st-chip--hot">ONE ACTIVE SLOT</span>
+                    <span className="st-chip">
+                        STORAGE <span className="st-ok">ONLINE</span>
+                    </span>
+                    <span className="st-chip st-chip--hot">
+                        {formatWalletAddress(walletAddress)}
+                    </span>
                 </div>
             </header>
 
@@ -74,4 +80,10 @@ export function SupplyTerminalView({
             />
         </div>
     );
+}
+
+function formatWalletAddress(address: string | null): string {
+    if (!address) return "WALLET --";
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }

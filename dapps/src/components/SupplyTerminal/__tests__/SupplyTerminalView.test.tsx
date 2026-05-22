@@ -37,6 +37,7 @@ function renderView(overrides: Partial<ComponentProps<typeof SupplyTerminalView>
         isOwner: false,
         extensionAuthorized: true,
         isAuthorizing: false,
+        walletAddress: "0x8f21aabbccddeeffdA90",
         slots: createReadySlots(),
         events: createEvents(),
         selectedTradeSlot: null,
@@ -70,8 +71,9 @@ describe("SupplyTerminalView", () => {
 
         const status = shell?.querySelector(".st-terminal__status");
         expect(status).not.toBeNull();
-        expect(within(status as HTMLElement).getByText("STORAGE ONLINE")).toBeDefined();
-        expect(within(status as HTMLElement).getByText("ONE ACTIVE SLOT")).toBeDefined();
+        expect(within(status as HTMLElement).getByText("STORAGE")).toBeDefined();
+        expect(within(status as HTMLElement).getByText("ONLINE")).toBeDefined();
+        expect(within(status as HTMLElement).getByText("0x8f21...dA90")).toBeDefined();
 
         const content = shell?.querySelector(".st-terminal__content");
         expect(content).not.toBeNull();

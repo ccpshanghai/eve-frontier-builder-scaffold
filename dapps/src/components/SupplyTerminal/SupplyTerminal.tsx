@@ -27,7 +27,7 @@ export function SupplyTerminal() {
     const [tradeError, setTradeError] = useState<string | null>(null);
     const [slotSold, setSlotSold] = useState(false);
     const [isAuthorizing, setIsAuthorizing] = useState(false);
-    const [extensionAuthorized, setExtensionAuthorized] = useState(false);
+    const [extensionAuthorized, setExtensionAuthorized] = useState(true);
     const tradeInFlightRef = useRef(false);
 
     const playerPaymentQuantity = 100;
@@ -137,6 +137,11 @@ export function SupplyTerminal() {
                 setSelectedTradeSlot(null);
                 addEvent({
                     type: "chain",
+                    message: "Exchange submitted",
+                    ...(typeof digest === "string" ? { digest } : {}),
+                });
+                addEvent({
+                    type: "chain",
                     message: "Exchange complete",
                     ...(typeof digest === "string" ? { digest } : {}),
                 });
@@ -224,6 +229,7 @@ export function SupplyTerminal() {
             isOwner={owner}
             extensionAuthorized={extensionAuthorized}
             isAuthorizing={isAuthorizing}
+            walletAddress={account?.address ?? null}
             slots={slots}
             events={events}
             selectedTradeSlot={currentSelectedTradeSlot}
