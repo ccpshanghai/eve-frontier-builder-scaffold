@@ -21,13 +21,18 @@ describe("EventLog", () => {
         expect(section).not.toBeNull();
         expect(section?.querySelector(".st-panel__head")).not.toBeNull();
         expect(section?.querySelector(".st-event-log__body")).not.toBeNull();
-        expect(screen.getByText("EVENT LOG")).toBeDefined();
+        expect(screen.getByRole("region", { name: "EVENT LOG" })).toBe(section);
+        expect(screen.getByRole("heading", { name: "EVENT LOG" })).toBeDefined();
         expect(screen.getByText("Full-width bottom terminal panel.")).toBeDefined();
         expect(screen.getByText("LOCAL")).toBeDefined();
         expect(screen.getByText("CHAIN")).toBeDefined();
         const counter = section?.querySelector(".st-counter");
         expect(counter).not.toBeNull();
         expect(counter?.querySelector(".st-counter__ready")?.textContent).toBe("CHAIN");
+        const log = screen.getByRole("log", { name: "EVENT LOG" });
+        expect(log.classList.contains("st-event-log__body")).toBe(true);
+        expect(log.getAttribute("aria-live")).toBe("polite");
+        expect(log.getAttribute("aria-relevant")).toBe("additions text");
         expect(screen.getByText("> Terminal inventory synchronized")).toBeDefined();
         expect(screen.getByText(/> Exchange completed/)).toBeDefined();
         expect(screen.getByText(/0xabcdef12\.\.\./)).toBeDefined();
@@ -48,5 +53,16 @@ describe("EventLog", () => {
         expect(screen.getByText("> Payment staged")).toBeDefined();
         expect(screen.getByText("> Payment accepted")).toBeDefined();
         expect(screen.getByText("> Dispensed: Carbon Weave x1")).toBeDefined();
+    });
+
+    it("does not add ellipsis to short digests", () => {
+        const events: ExchangeEvent[] = [
+            { type: "chain", message: "Exchange submitted", digest: "0xabc", timestamp: 1000 },
+        ];
+
+        render(<EventLog events={events} />);
+
+        expect(screen.getByText("0xabc")).toBeDefined();
+        expect(screen.queryByText("0xabc...")).toBeNull();
     });
 });
