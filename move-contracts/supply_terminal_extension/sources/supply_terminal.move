@@ -147,3 +147,36 @@ public fun exchange<T: key>(
         product_quantity: product_qty,
     });
 }
+
+// ============================================================
+// Test-only helpers
+// ============================================================
+
+#[test_only]
+public fun new_listing_config(
+    enabled: bool,
+    product_type_id: u64,
+    product_quantity: u32,
+    payment_type_id: u64,
+    payment_quantity: u32,
+): ListingConfig {
+    ListingConfig { enabled, product_type_id, product_quantity, payment_type_id, payment_quantity }
+}
+
+#[test_only]
+public fun listing_config_enabled(config: &ListingConfig): bool { config.enabled }
+
+#[test_only]
+public fun listing_config_product_type_id(config: &ListingConfig): u64 { config.product_type_id }
+
+#[test_only]
+public fun listing_config_product_quantity(config: &ListingConfig): u32 { config.product_quantity }
+
+#[test_only]
+public fun listing_config_payment_type_id(config: &ListingConfig): u64 { config.payment_type_id }
+
+#[test_only]
+public fun listing_config_payment_quantity(config: &ListingConfig): u32 { config.payment_quantity }
+
+#[test_only]
+public fun new_listing_config_key(): ListingConfigKey { ListingConfigKey {} }

@@ -95,3 +95,12 @@ public fun remove_rule<K: copy + drop + store, V: store>(
 ): V {
     dynamic_field::remove<K, V>(&mut config.id, key)
 }
+
+// ============================================================
+// Test-only helpers
+// ============================================================
+
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(ctx)
+}
