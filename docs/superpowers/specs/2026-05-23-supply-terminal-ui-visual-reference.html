@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Modal Vending Terminal</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #060504;
+      --panel: rgba(14, 11, 8, 0.94);
+      --panel-soft: rgba(8, 7, 6, 0.78);
+      --line: #4f4438;
+      --line-strong: #7d5935;
+      --text: #f3ecd2;
+      --muted: #948875;
+      --dim: #665d50;
+      --orange: #e8792a;
+      --green: #8fe0aa;
+      --danger: #c46a42;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #111;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .page { padding: 24px; }
+
+    .intro {
+      width: min(100%, 1240px);
+      margin: 0 auto 16px;
+      color: #ddd7c8;
+    }
+
+    .intro h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .intro p {
+      margin: 0;
+      line-height: 1.5;
+      color: #afa89a;
+      font-size: 14px;
+    }
+
+    .terminal-shell {
+      position: relative;
+      width: min(100%, 1240px);
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        radial-gradient(circle at 16% 10%, rgba(232,121,42,.12), transparent 23%),
+        var(--bg);
+      background-size: 24px 24px, 24px 24px, 100% 100%, 100% 100%;
+      box-shadow: 0 0 0 1px rgba(232,121,42,.16), 0 18px 50px rgba(0,0,0,.45);
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(11,9,7,.94);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--orange);
+      display: grid;
+      place-items: center;
+      color: var(--orange);
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+
+    .eyebrow {
+      color: var(--orange);
+      font-size: 10px;
+      letter-spacing: .16em;
+    }
+
+    .title {
+      font-size: clamp(18px, 2.1vw, 24px);
+      line-height: 1.08;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    .top-status {
+      display: flex;
+      gap: 8px;
+      font-size: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      padding: 7px 9px;
+      color: #bdb29a;
+      white-space: nowrap;
+    }
+
+    .chip.hot {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: rgba(232,121,42,.08);
+    }
+
+    .ok { color: var(--green); }
+
+    .auth-banner {
+      margin: 14px 18px 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--line-strong);
+      background: rgba(232,121,42,.09);
+      padding: 10px 12px;
+    }
+
+    .auth-copy {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .pulse {
+      width: 9px;
+      height: 9px;
+      background: var(--orange);
+      box-shadow: 0 0 12px rgba(232,121,42,.85);
+      flex: 0 0 auto;
+    }
+
+    .auth-title { font-size: 11px; }
+
+    .auth-detail {
+      font-size: 10px;
+      color: #bdb29a;
+      margin-top: 2px;
+    }
+
+    .button {
+      border: 1px solid var(--orange);
+      border-radius: 0;
+      background: var(--orange);
+      color: #140b04;
+      font: inherit;
+      font-size: 10px;
+      padding: 8px 10px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .button.secondary {
+      border-color: var(--line);
+      background: transparent;
+      color: #bdb29a;
+    }
+
+    .button:disabled,
+    .button.disabled {
+      border-color: var(--line);
+      background: transparent;
+      color: var(--dim);
+      cursor: default;
+    }
+
+    .content {
+      padding: 14px 18px 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      min-width: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-note {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+      line-height: 1.35;
+    }
+
+    .counter {
+      display: flex;
+      gap: 6px;
+      font-size: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .counter span {
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 4px 6px;
+      white-space: nowrap;
+    }
+
+    .counter .ready {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: rgba(232,121,42,.08);
+    }
+
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+
+    @media (min-width: 1120px) {
+      .slot-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    .slot {
+      min-height: 196px;
+      padding: 11px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slot.ready {
+      border: 1px solid var(--orange);
+      background: linear-gradient(180deg, rgba(232,121,42,.16), rgba(232,121,42,.04));
+      box-shadow: inset 0 0 0 1px rgba(255,197,120,.08);
+    }
+
+    .slot.empty {
+      border: 1px dashed var(--line);
+      background: var(--panel-soft);
+      color: var(--dim);
+    }
+
+    .slot.disabled {
+      border: 1px solid var(--line);
+      background: rgba(12, 9, 7, .9);
+      color: #8b7c69;
+    }
+
+    .slot-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 10px;
+    }
+
+    .slot.ready .slot-meta { color: var(--orange); }
+
+    .slot-status {
+      border: 1px solid currentColor;
+      padding: 2px 6px;
+      background: rgba(232,121,42,.1);
+      color: var(--text);
+    }
+
+    .slot-body {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+      flex: 1;
+    }
+
+    .item-icon {
+      height: 80px;
+      border: 1px solid var(--text);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(232,121,42,.25), transparent 38%),
+        repeating-linear-gradient(45deg, #2a1e14 0, #2a1e14 5px, #17110c 5px, #17110c 10px);
+      display: grid;
+      place-items: center;
+    }
+
+    .item-icon::after {
+      content: "";
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--text);
+      background: rgba(243,236,210,.08);
+    }
+
+    .empty-icon {
+      height: 80px;
+      border: 1px dashed var(--line);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+    }
+
+    .item-name {
+      font-size: 20px;
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .item-detail {
+      font-size: 10px;
+      color: #bdb29a;
+      margin-top: 7px;
+    }
+
+    .empty .item-detail,
+    .empty .item-name { color: var(--dim); }
+
+    .sep {
+      height: 1px;
+      background: var(--line);
+      margin: 10px 0 8px;
+    }
+
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .kv + .kv {
+      margin-top: 6px;
+      font-size: 10px;
+    }
+
+    .label { color: var(--muted); }
+
+    .slot-action {
+      margin-top: 12px;
+      display: flex;
+      justify-content: stretch;
+    }
+
+    .slot-action .button { width: 100%; }
+
+    .slot.ready::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: var(--orange);
+    }
+
+    .log-body {
+      padding: 12px;
+      font-size: 11px;
+      color: #bdb29a;
+      line-height: 1.7;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+      gap: 4px 18px;
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, .58);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .modal {
+      width: min(100%, 430px);
+      border: 1px solid var(--orange);
+      background:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        #100c08;
+      background-size: 20px 20px;
+      box-shadow: 0 0 0 1px rgba(255,174,99,.14), 0 24px 70px rgba(0,0,0,.6);
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .modal-title {
+      font-size: 22px;
+      margin-top: 4px;
+    }
+
+    .modal-body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .modal-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .approve {
+      width: min(100%, 1240px);
+      margin: 16px auto 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .option {
+      border: 1px solid #3e3e3e;
+      background: #181818;
+      padding: 16px;
+      cursor: pointer;
+    }
+
+    .option h3 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+
+    .option p {
+      margin: 0;
+      color: #a8a8a8;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding: 14px; }
+
+      .topbar,
+      .auth-banner,
+      .panel-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .top-status,
+      .counter {
+        justify-content: flex-start;
+      }
+
+      .content {
+        padding: 12px;
+      }
+
+      .slot-body {
+        grid-template-columns: 1fr;
+      }
+
+      .item-icon,
+      .empty-icon {
+        height: 96px;
+      }
+
+      .modal-actions,
+      .approve {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="intro">
+      <h1>Responsive modal vending terminal</h1>
+      <p>
+        No persistent right rail. Slots adapt from 1 to 3 columns. Each slot owns its
+        trade action. Event log is always a full-width bottom panel, matching the terminal.
+      </p>
+    </section>
+
+    <section class="terminal-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark">ST</div>
+          <div>
+            <div class="eyebrow">EVE FRONTIER DAPP</div>
+            <div class="title">SUPPLY TERMINAL</div>
+          </div>
+        </div>
+        <div class="top-status">
+          <div class="chip">STORAGE <span class="ok">ONLINE</span></div>
+          <div class="chip hot">0x8f21...dA90</div>
+        </div>
+      </header>
+
+      <div class="auth-banner">
+        <div class="auth-copy">
+          <div class="pulse"></div>
+          <div>
+            <div class="auth-title">EXTENSION NOT AUTHORIZED</div>
+            <div class="auth-detail">Owner action required before terminal item movement.</div>
+          </div>
+        </div>
+        <button class="button">AUTHORIZE</button>
+      </div>
+
+      <div class="content">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">SALE SLOTS</div>
+              <div class="panel-note">Payment check uses player StorageUnit-owned inventory. Empty slots are future vending bays.</div>
+            </div>
+            <div class="counter">
+              <span class="ready">1 READY</span>
+              <span>5 EMPTY</span>
+            </div>
+          </div>
+
+          <div class="slot-grid">
+            <article class="slot ready">
+              <div class="slot-meta">
+                <span>SLOT 01</span>
+                <span class="slot-status">READY</span>
+              </div>
+              <div class="slot-body">
+                <div class="item-icon"></div>
+                <div>
+                  <div class="item-name">Carbon Weave</div>
+                  <div class="item-detail">REWARD x1 · ITEMID 84210</div>
+                  <div class="sep"></div>
+                  <div class="kv"><span class="label">PRICE</span><span>Feldspar x10</span></div>
+                  <div class="kv"><span class="label">CHECK</span><span class="ok">AVAILABLE</span></div>
+                </div>
+              </div>
+              <div class="slot-action">
+                <button class="button">TRADE</button>
+              </div>
+            </article>
+
+            <article class="slot empty">
+              <div class="slot-meta"><span>SLOT 02</span><span>EMPTY</span></div>
+              <div class="slot-body">
+                <div class="empty-icon">EMPTY</div>
+                <div>
+                  <div class="item-name">No Item</div>
+                  <div class="item-detail">No reward configured</div>
+                  <div class="sep"></div>
+                  <div class="kv"><span>PRICE</span><span>--</span></div>
+                </div>
+              </div>
+              <div class="slot-action"><button class="button disabled">EMPTY</button></div>
+            </article>
+
+            <article class="slot empty">
+              <div class="slot-meta"><span>SLOT 03</span><span>EMPTY</span></div>
+              <div class="slot-body">
+                <div class="empty-icon">EMPTY</div>
+                <div>
+                  <div class="item-name">No Item</div>
+                  <div class="item-detail">No reward configured</div>
+                  <div class="sep"></div>
+                  <div class="kv"><span>PRICE</span><span>--</span></div>
+                </div>
+              </div>
+              <div class="slot-action"><button class="button disabled">EMPTY</button></div>
+            </article>
+
+            <article class="slot empty">
+              <div class="slot-meta"><span>SLOT 04</span><span>EMPTY</span></div>
+              <div class="slot-body">
+                <div class="empty-icon">EMPTY</div>
+                <div>
+                  <div class="item-name">No Item</div>
+                  <div class="item-detail">No reward configured</div>
+                  <div class="sep"></div>
+                  <div class="kv"><span>PRICE</span><span>--</span></div>
+                </div>
+              </div>
+              <div class="slot-action"><button class="button disabled">EMPTY</button></div>
+            </article>
+
+            <article class="slot empty">
+              <div class="slot-meta"><span>SLOT 05</span><span>EMPTY</span></div>
+              <div class="slot-body">
+                <div class="empty-icon">EMPTY</div>
+                <div>
+                  <div class="item-name">No Item</div>
+                  <div class="item-detail">No reward configured</div>
+                  <div class="sep"></div>
+                  <div class="kv"><span>PRICE</span><span>--</span></div>
+                </div>
+              </div>
+              <div class="slot-action"><button class="button disabled">EMPTY</button></div>
+            </article>
+
+            <article class="slot empty">
+              <div class="slot-meta"><span>SLOT 06</span><span>EMPTY</span></div>
+              <div class="slot-body">
+                <div class="empty-icon">EMPTY</div>
+                <div>
+                  <div class="item-name">No Item</div>
+                  <div class="item-detail">No reward configured</div>
+                  <div class="sep"></div>
+                  <div class="kv"><span>PRICE</span><span>--</span></div>
+                </div>
+              </div>
+              <div class="slot-action"><button class="button disabled">EMPTY</button></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">EVENT LOG</div>
+              <div class="panel-note">Full-width bottom terminal panel. This is the persistent feedback area.</div>
+            </div>
+            <div class="counter"><span>LOCAL</span><span class="ready">CHAIN</span></div>
+          </div>
+          <div class="log-body">
+            <div>&gt; Terminal inventory synchronized</div>
+            <div>&gt; Slot 01 price available</div>
+            <div style="color:var(--orange)">&gt; Trade confirmation opened</div>
+            <div>&gt; Awaiting wallet confirmation</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop">
+        <div class="modal">
+          <div class="modal-head">
+            <div>
+              <div class="eyebrow">CONFIRM TRADE</div>
+              <div class="modal-title">Slot 01</div>
+            </div>
+            <div class="chip hot">READY</div>
+          </div>
+          <div class="modal-body">
+            <div class="modal-row"><span class="label">RECEIVE</span><span>Carbon Weave x1</span></div>
+            <div class="modal-row"><span class="label">PAY</span><span>Feldspar Crystals x10</span></div>
+            <div class="modal-row"><span class="label">PRICE CHECK</span><span class="ok">AVAILABLE</span></div>
+            <div class="modal-row"><span class="label">ON SUCCESS</span><span>Slot 01 becomes EMPTY</span></div>
+            <div class="modal-actions">
+              <button class="button secondary">CANCEL</button>
+              <button class="button">CONFIRM TRADE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="approve options">
+      <div class="option" data-choice="approve-modal-vending" onclick="toggleSelect(this)">
+        <h3>A. Approve Modal Vending Layout</h3>
+        <p>Use per-slot trade buttons, modal confirmation, 1-3 adaptive slot columns, and full-width bottom event log.</p>
+      </div>
+      <div class="option" data-choice="revise-modal-vending" onclick="toggleSelect(this)">
+        <h3>B. Revise Further</h3>
+        <p>Adjust modal, slot density, empty slot treatment, or event log placement before writing the spec.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

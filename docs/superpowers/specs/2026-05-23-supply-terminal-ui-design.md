@@ -3,6 +3,7 @@
 Date: 2026-05-23
 Base implementation spec: [2026-05-22-supply-terminal-design.md](./2026-05-22-supply-terminal-design.md)
 Visual direction approved from the brainstorming companion: responsive Frontier-style vending terminal with per-slot trade confirmation.
+Visual reference: [2026-05-23-supply-terminal-ui-visual-reference.html](./2026-05-23-supply-terminal-ui-visual-reference.html)
 
 ## Goal
 
