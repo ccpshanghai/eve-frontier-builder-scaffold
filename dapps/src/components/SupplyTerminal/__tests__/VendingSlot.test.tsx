@@ -34,10 +34,10 @@ describe("VendingSlot", () => {
         expect(screen.getByText("SLOT 01")).toBeDefined();
         expect(screen.getByText("READY")).toBeDefined();
         expect(screen.getByText("Carbon Weave")).toBeDefined();
-        expect(screen.getByText("x1 / ID 84210")).toBeDefined();
+        expect(screen.getByText("REWARD x1 · ITEMID 84210")).toBeDefined();
         expect(screen.getByText("Feldspar Crystals x10")).toBeDefined();
 
-        const button = screen.getByRole("button", { name: "Trade SLOT 01" });
+        const button = screen.getByRole("button", { name: "TRADE" });
         expect(button.hasAttribute("disabled")).toBe(false);
     });
 
@@ -46,7 +46,7 @@ describe("VendingSlot", () => {
         const onTrade = vi.fn();
 
         render(<VendingSlot slot={slot} onTrade={onTrade} />);
-        fireEvent.click(screen.getByRole("button", { name: "Trade SLOT 01" }));
+        fireEvent.click(screen.getByRole("button", { name: "TRADE" }));
 
         expect(onTrade).toHaveBeenCalledTimes(1);
         expect(onTrade).toHaveBeenCalledWith(slot);
@@ -67,7 +67,7 @@ describe("VendingSlot", () => {
         expect(screen.getByText("No Item")).toBeDefined();
         expect(screen.getAllByText("--").length).toBeGreaterThan(0);
 
-        const button = screen.getByRole("button", { name: "Empty SLOT 01" });
+        const button = screen.getByRole("button", { name: "EMPTY" });
         expect(button.hasAttribute("disabled")).toBe(true);
         fireEvent.click(button);
         expect(onTrade).not.toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe("VendingSlot", () => {
 
         expect(screen.getAllByText("EMPTY").length).toBeGreaterThan(0);
         expect(
-            screen.getByRole("button", { name: "Empty SLOT 01" }).hasAttribute("disabled"),
+            screen.getByRole("button", { name: "EMPTY" }).hasAttribute("disabled"),
         ).toBe(true);
     });
 
@@ -102,7 +102,7 @@ describe("VendingSlot", () => {
         expect(screen.getByText("NO PAYMENT")).toBeDefined();
         expect(screen.getByText("Requires Feldspar Crystals x10")).toBeDefined();
 
-        const button = screen.getByRole("button", { name: "Trade SLOT 01" });
+        const button = screen.getByRole("button", { name: "TRADE" });
         expect(button.hasAttribute("disabled")).toBe(true);
         fireEvent.click(button);
         expect(onTrade).not.toHaveBeenCalled();

@@ -28,7 +28,6 @@ export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
     const isEmpty = isEmptyAffordance(slot);
     const statusLabel = getStatusLabel(slot.status);
     const actionLabel = isEmpty ? "EMPTY" : "TRADE";
-    const actionAriaLabel = isEmpty ? `Empty ${slot.label}` : `Trade ${slot.label}`;
 
     function handleTrade() {
         if (!slot.canTrade) {
@@ -61,7 +60,7 @@ export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
                     <div className="st-slot__detail">
                         {isEmpty
                             ? "--"
-                            : `x${slot.reward?.quantity ?? 0} / ID ${slot.reward?.sandboxItemId ?? "--"}`}
+                            : `REWARD x${slot.reward?.quantity ?? 0} · ITEMID ${slot.reward?.sandboxItemId ?? "--"}`}
                     </div>
 
                     <div className="st-slot__separator" />
@@ -89,7 +88,6 @@ export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
                     className="st-button"
                     disabled={!slot.canTrade}
                     onClick={handleTrade}
-                    aria-label={actionAriaLabel}
                 >
                     {actionLabel}
                 </button>
