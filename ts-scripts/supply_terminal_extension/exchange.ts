@@ -12,23 +12,38 @@ import {
     requireEnv,
 } from "../utils/helper";
 import { getCharacterOwnerCap } from "../helpers/character";
+import { assertSupplyTerminalExchangeReady } from "./preflight";
 
 async function exchange(
     ctx: ReturnType<typeof initializeContext>,
     storageUnitItemId: bigint,
-    characterItemId: bigint,
+    characterItemId: bigint
 ) {
     const { client, keypair, config } = ctx;
     const builderPackageId = requireBuilderPackageId();
     const extensionConfigId = requireEnv("SUPPLY_TERMINAL_CONFIG_ID");
 
     const characterId = deriveObjectId(config.objectRegistry, characterItemId, config.packageId);
-    const storageUnitId = deriveObjectId(config.objectRegistry, storageUnitItemId, config.packageId);
+    const storageUnitId = deriveObjectId(
+        config.objectRegistry,
+        storageUnitItemId,
+        config.packageId
+    );
 
     const playerOwnerCapId = await getCharacterOwnerCap(characterId, client, config);
     if (!playerOwnerCapId) {
         throw new Error(`Character OwnerCap not found for character ${characterId}`);
     }
+
+    await assertSupplyTerminalExchangeReady(client, config, {
+        builderPackageId,
+        extensionConfigId,
+        storageUnitId,
+        storageUnitItemId,
+        characterId,
+        characterItemId,
+        characterOwnerCapId: playerOwnerCapId,
+    });
 
     const tx = new Transaction();
 
