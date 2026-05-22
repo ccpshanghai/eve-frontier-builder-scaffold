@@ -1,4 +1,4 @@
-import type { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { requireEnv } from "../utils/helper";
 import { MODULE } from "./modules";
 
@@ -23,8 +23,8 @@ export function resolveIdsFromEnv(): {
 }
 
 export async function resolveSupplyTerminalExtensionIds(
-    client: SuiClient,
-    ownerAddress: string,
+    client: SuiJsonRpcClient,
+    ownerAddress: string
 ): Promise<SupplyTerminalExtensionIds> {
     const { builderPackageId, extensionConfigId } = resolveIdsFromEnv();
     const adminCapType = `${builderPackageId}::${MODULE.CONFIG}::AdminCap`;

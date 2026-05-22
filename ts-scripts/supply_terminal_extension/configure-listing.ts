@@ -20,22 +20,15 @@ async function configureListing(ctx: ReturnType<typeof initializeContext>) {
     const tx = new Transaction();
 
     tx.moveCall({
-        target: `${builderPackageId}::${MODULE.CONFIG}::add_rule`,
-        typeArguments: [
-            `${builderPackageId}::${MODULE.SUPPLY_TERMINAL}::ListingConfigKey`,
-            `${builderPackageId}::${MODULE.SUPPLY_TERMINAL}::ListingConfig`,
-        ],
+        target: `${builderPackageId}::${MODULE.SUPPLY_TERMINAL}::set_listing_config`,
         arguments: [
             tx.object(extensionConfigId),
             tx.object(adminCapId),
-            tx.pure.vector("u8", []), // ListingConfigKey {}
-            tx.pure.vector("u8", [
-                1,  // enabled: true
-                50, 82, 1, 0, 0, 0, 0, 0,  // product_type_id: 84210 (u64 LE)
-                1, 0, 0, 0,                   // product_quantity: 1 (u32 LE)
-                248, 47, 1, 0, 0, 0, 0, 0,  // payment_type_id: 77800 (u64 LE)
-                10, 0, 0, 0,                  // payment_quantity: 10 (u32 LE)
-            ]),
+            tx.pure.bool(true),
+            tx.pure.u64(84210),
+            tx.pure.u32(1),
+            tx.pure.u64(77800),
+            tx.pure.u32(10),
         ],
     });
 

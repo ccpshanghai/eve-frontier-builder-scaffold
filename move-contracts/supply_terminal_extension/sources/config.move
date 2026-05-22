@@ -49,13 +49,10 @@ public(package) fun supply_terminal_auth(): SupplyTerminalAuth {
 // ============================================================
 
 public fun has_rule<K: copy + drop + store>(config: &ExtensionConfig, key: K): bool {
-    dynamic_field::exists_<K>(&config.id, key)
+    dynamic_field::exists<K>(&config.id, key)
 }
 
-public fun borrow_rule<K: copy + drop + store, V: store>(
-    config: &ExtensionConfig,
-    key: K,
-): &V {
+public fun borrow_rule<K: copy + drop + store, V: store>(config: &ExtensionConfig, key: K): &V {
     dynamic_field::borrow<K, V>(&config.id, key)
 }
 

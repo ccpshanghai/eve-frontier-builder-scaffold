@@ -4,11 +4,8 @@
 module supply_terminal_extension::supply_terminal;
 
 use sui::event;
-
-use world::storage_unit::{Self, StorageUnit};
-use world::character::{Self, Character};
-use world::access::OwnerCap;
-use supply_terminal_extension::config::{Self, ExtensionConfig, SupplyTerminalAuth};
+use supply_terminal_extension::config::{Self, AdminCap, ExtensionConfig, SupplyTerminalAuth};
+use world::{access::OwnerCap, character::{Self, Character}, storage_unit::{Self, StorageUnit}};
 
 // ============================================================
 // Listing Configuration
@@ -70,6 +67,33 @@ public fun payment_type_id(config: &ExtensionConfig): u64 {
 public fun payment_quantity(config: &ExtensionConfig): u32 {
     let listing: &ListingConfig = config::borrow_rule(config, ListingConfigKey {});
     listing.payment_quantity
+}
+
+// ============================================================
+// Admin functions
+// ============================================================
+
+public fun set_listing_config(
+    extension_config: &mut ExtensionConfig,
+    admin_cap: &AdminCap,
+    enabled: bool,
+    product_type_id: u64,
+    product_quantity: u32,
+    payment_type_id: u64,
+    payment_quantity: u32,
+) {
+    config::set_rule<ListingConfigKey, ListingConfig>(
+        extension_config,
+        admin_cap,
+        ListingConfigKey {},
+        ListingConfig {
+            enabled,
+            product_type_id,
+            product_quantity,
+            payment_type_id,
+            payment_quantity,
+        },
+    );
 }
 
 // ============================================================
