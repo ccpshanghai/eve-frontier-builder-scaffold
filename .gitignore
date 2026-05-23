@@ -24,3 +24,5 @@ move-contracts/**/build/**/
 dist/
 
 .superpowers/brainstorm/
+.playwright-cli/
+.test-results/

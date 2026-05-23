@@ -28,6 +28,27 @@ sui client active-address
 
 For this repo's local deployment flow, the active env should usually be `local` and point to `http://127.0.0.1:9000`.
 
+## Verify dApp UI with Playwright
+
+When checking the Supply Terminal dapp UI, prefer Playwright through `pnpx` first. Do not start with a bare `playwright-cli` command because it is not guaranteed to be on `PATH` in this workspace.
+
+Start the dapp from the repo root:
+
+```bash
+pnpm --dir dapps dev --host 127.0.0.1 --port 5173
+```
+
+Then try Playwright with `pnpx`:
+
+```bash
+pnpx playwright open http://127.0.0.1:5173/
+pnpx playwright test <spec-file>
+```
+
+For Supply Terminal UI checks, verify `dapps/.env` has `VITE_OBJECT_ID` set to the current StorageUnit object ID, then confirm the page renders storage-backed slots and disconnected wallet trade actions are disabled.
+
+If `pnpx playwright ...` is unavailable, fall back to the repo-local Playwright binary only after noting the fallback.
+
 ## Read Deployment IDs Safely
 
 Inspect only public deployment variables:
