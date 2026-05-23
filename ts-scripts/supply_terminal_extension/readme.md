@@ -19,6 +19,30 @@ STORAGE_UNIT_ITEM_ID=<storage unit game item ID>
 CHARACTER_ITEM_ID=<character game item ID>
 ```
 
+## Optional multi-listing config
+
+By default the scripts configure and seed the original single listing:
+
+- product `84210` x1
+- payment `77800` x10
+
+Set `SUPPLY_TERMINAL_LISTINGS` to configure multiple products in one command:
+
+```bash
+SUPPLY_TERMINAL_LISTINGS='[
+  {"productTypeId":"84210","productQuantity":1,"paymentTypeId":"77800","paymentQuantity":10,"paymentVolume":"10"},
+  {"productTypeId":"84211","productQuantity":3,"paymentTypeId":"77801","paymentQuantity":25,"paymentVolume":"10"}
+]'
+```
+
+Each `productTypeId` must be unique. `productQuantity` can be any positive integer. `paymentVolume` is only used by `pnpm seed-supply-terminal-payment`; it defaults to `10` when omitted.
+
+To run an exchange for a specific product:
+
+```bash
+SUPPLY_TERMINAL_EXCHANGE_PRODUCT_TYPE_ID=84211 pnpm supply-terminal-exchange
+```
+
 ## Script order
 
 ```bash
@@ -28,6 +52,9 @@ pnpm configure-supply-terminal
 # 2. Authorize extension on storage unit (owner)
 pnpm authorise-supply-terminal
 
-# 3. Execute test exchange (player)
-pnpm supply-terminal-exchange
+# 3. Seed player payment inventory for configured listings (localnet helper)
+pnpm seed-supply-terminal-payment
+
+# 4. Execute test exchange (player)
+SUPPLY_TERMINAL_EXCHANGE_PRODUCT_TYPE_ID=84210 pnpm supply-terminal-exchange
 ```
