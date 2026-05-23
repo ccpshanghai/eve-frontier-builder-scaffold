@@ -533,6 +533,10 @@ function getRecord(value: unknown): MoveFields | null {
 function getStatusVariant(value: unknown): string | null {
   if (typeof value === "string") return value;
 
+  const record = getRecord(value);
+  const directVariant = record?.variant ?? record?.["@variant"];
+  if (typeof directVariant === "string") return directVariant;
+
   const fields = getTypedFields(value);
   if (!fields) return null;
 

@@ -113,6 +113,39 @@ describe("Supply Terminal chain adapter", () => {
     ).toEqual([{ typeId: 77800, quantity: 10 }]);
   });
 
+  it("reads nested StorageUnit status variants from Sui RPC content", async () => {
+    const client = {
+      getObject: async () => ({
+        data: {
+          content: {
+            fields: {
+              owner_cap_id: machineOwnerCapId,
+              status: {
+                type: `${worldPackageId}::status::AssemblyStatus`,
+                fields: {
+                  status: {
+                    type: `${worldPackageId}::status::Status`,
+                    variant: "ONLINE",
+                    fields: {},
+                  },
+                },
+              },
+              extension: `${supplyTerminalPackageId}::config::SupplyTerminalAuth`,
+            },
+          },
+        },
+      }),
+      getDynamicFields: async () => ({ data: [], hasNextPage: false }),
+    };
+
+    const snapshot = await loadSupplyTerminalSnapshot({
+      env: baseEnv,
+      client: client as unknown as SuiJsonRpcClient,
+    });
+
+    expect(snapshot.storage.status).toBe("ONLINE");
+  });
+
   it("reports ready when listing, stock, payment, and wallet character are present", () => {
     expect(validateSupplyTerminalSnapshot(baseSnapshot)).toEqual({
       paymentAvailable: true,
