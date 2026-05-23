@@ -11,28 +11,73 @@ const BASE_ENV = {
 
     assert.equal(config.storageUnitItemId, 888800006n);
     assert.equal(config.characterItemId, 811880n);
-    assert.equal(config.paymentTypeId, 77800n);
-    assert.equal(config.paymentItemId, 7781779436000000n);
-    assert.equal(config.volume, 10n);
-    assert.equal(config.quantity, 10);
+    assert.equal(config.payments.length, 1);
+    assert.equal(config.payments[0].paymentTypeId, 77800n);
+    assert.equal(config.payments[0].paymentItemId, 7781779436000000n);
+    assert.equal(config.payments[0].volume, 10n);
+    assert.equal(config.payments[0].quantity, 10);
 }
 
 {
     const config = buildPaymentSeedConfig(
         {
             ...BASE_ENV,
-            SUPPLY_TERMINAL_PAYMENT_TYPE_ID: "12345",
-            SUPPLY_TERMINAL_PAYMENT_ITEM_ID: "99999",
-            SUPPLY_TERMINAL_PAYMENT_VOLUME: "7",
-            SUPPLY_TERMINAL_PAYMENT_QUANTITY: "42",
+            SUPPLY_TERMINAL_LISTINGS: JSON.stringify([
+                {
+                    productTypeId: "84210",
+                    productQuantity: 1,
+                    paymentTypeId: "77800",
+                    paymentQuantity: 10,
+                    paymentVolume: "10",
+                },
+                {
+                    productTypeId: "84211",
+                    productQuantity: 3,
+                    paymentTypeId: "77801",
+                    paymentQuantity: 25,
+                    paymentVolume: "7",
+                },
+            ]),
         },
         1779436000000
     );
 
-    assert.equal(config.paymentTypeId, 12345n);
-    assert.equal(config.paymentItemId, 99999n);
-    assert.equal(config.volume, 7n);
-    assert.equal(config.quantity, 42);
+    assert.equal(config.payments.length, 2);
+    assert.equal(config.payments[0].paymentTypeId, 77800n);
+    assert.equal(config.payments[0].paymentItemId, 7781779436000000n);
+    assert.equal(config.payments[0].volume, 10n);
+    assert.equal(config.payments[0].quantity, 10);
+    assert.equal(config.payments[1].paymentTypeId, 77801n);
+    assert.equal(config.payments[1].paymentItemId, 7781779436000001n);
+    assert.equal(config.payments[1].volume, 7n);
+    assert.equal(config.payments[1].quantity, 25);
+}
+
+{
+    const config = buildPaymentSeedConfig(
+        {
+            ...BASE_ENV,
+            SUPPLY_TERMINAL_PAYMENT_ITEM_ID: "99999",
+            SUPPLY_TERMINAL_LISTINGS: JSON.stringify([
+                {
+                    productTypeId: "84210",
+                    productQuantity: 1,
+                    paymentTypeId: "77800",
+                    paymentQuantity: 10,
+                },
+                {
+                    productTypeId: "84211",
+                    productQuantity: 3,
+                    paymentTypeId: "77801",
+                    paymentQuantity: 25,
+                },
+            ]),
+        },
+        1779436000000
+    );
+
+    assert.equal(config.payments[0].paymentItemId, 99999n);
+    assert.equal(config.payments[1].paymentItemId, 100000n);
 }
 
 assert.throws(
@@ -43,8 +88,18 @@ assert.throws(
 assert.throws(
     () =>
         buildPaymentSeedConfig(
-            { ...BASE_ENV, SUPPLY_TERMINAL_PAYMENT_QUANTITY: "0" },
+            {
+                ...BASE_ENV,
+                SUPPLY_TERMINAL_LISTINGS: JSON.stringify([
+                    {
+                        productTypeId: "84210",
+                        productQuantity: 0,
+                        paymentTypeId: "77800",
+                        paymentQuantity: 10,
+                    },
+                ]),
+            },
             1779436000000
         ),
-    /SUPPLY_TERMINAL_PAYMENT_QUANTITY must be a positive integer/
+    /SUPPLY_TERMINAL_LISTINGS\[0\].productQuantity must be a positive integer/
 );

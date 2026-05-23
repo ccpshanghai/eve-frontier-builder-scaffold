@@ -14,19 +14,21 @@ import {
 } from "../utils/helper";
 import { executeSponsoredTransaction } from "../utils/transaction";
 import { getCharacterOwnerCap } from "../helpers/character";
+import { buildSupplyTerminalListings } from "./listing-config";
 
-const DEFAULT_PAYMENT_TYPE_ID = 77800n;
-const DEFAULT_PAYMENT_QUANTITY = 10;
-const DEFAULT_PAYMENT_VOLUME = 10n;
 const DEFAULT_PAYMENT_ITEM_ID_BASE = 7_780_000_000_000_000n;
 
-export type PaymentSeedConfig = {
-    storageUnitItemId: bigint;
-    characterItemId: bigint;
+export type PaymentSeed = {
     paymentTypeId: bigint;
     paymentItemId: bigint;
     volume: bigint;
     quantity: number;
+};
+
+export type PaymentSeedConfig = {
+    storageUnitItemId: bigint;
+    characterItemId: bigint;
+    payments: PaymentSeed[];
 };
 
 type EnvLike = Record<string, string | undefined>;
@@ -35,25 +37,21 @@ export function buildPaymentSeedConfig(
     env: EnvLike = process.env,
     nowMs: number = Date.now()
 ): PaymentSeedConfig {
+    const basePaymentItemId = readOptionalBigInt(
+        env,
+        "SUPPLY_TERMINAL_PAYMENT_ITEM_ID",
+        DEFAULT_PAYMENT_ITEM_ID_BASE + BigInt(nowMs)
+    );
+
     return {
         storageUnitItemId: readRequiredBigInt(env, "STORAGE_UNIT_ITEM_ID"),
         characterItemId: readRequiredBigInt(env, "CHARACTER_ITEM_ID"),
-        paymentTypeId: readOptionalBigInt(
-            env,
-            "SUPPLY_TERMINAL_PAYMENT_TYPE_ID",
-            DEFAULT_PAYMENT_TYPE_ID
-        ),
-        paymentItemId: readOptionalBigInt(
-            env,
-            "SUPPLY_TERMINAL_PAYMENT_ITEM_ID",
-            DEFAULT_PAYMENT_ITEM_ID_BASE + BigInt(nowMs)
-        ),
-        volume: readOptionalBigInt(env, "SUPPLY_TERMINAL_PAYMENT_VOLUME", DEFAULT_PAYMENT_VOLUME),
-        quantity: readOptionalPositiveInteger(
-            env,
-            "SUPPLY_TERMINAL_PAYMENT_QUANTITY",
-            DEFAULT_PAYMENT_QUANTITY
-        ),
+        payments: buildSupplyTerminalListings(env).map((listing, index) => ({
+            paymentTypeId: listing.paymentTypeId,
+            paymentItemId: basePaymentItemId + BigInt(index),
+            volume: listing.paymentVolume,
+            quantity: listing.paymentQuantity,
+        })),
     };
 }
 
@@ -92,20 +90,22 @@ async function seedPayment(
         arguments: [tx.object(characterId), tx.object(ownerCapId)],
     });
 
-    tx.moveCall({
-        target: `${worldConfig.packageId}::${MODULES.STORAGE_UNIT}::game_item_to_chain_inventory`,
-        typeArguments: [`${worldConfig.packageId}::${MODULES.CHARACTER}::Character`],
-        arguments: [
-            tx.object(storageUnitId),
-            tx.object(worldConfig.adminAcl),
-            tx.object(characterId),
-            ownerCap,
-            tx.pure.u64(seedConfig.paymentItemId),
-            tx.pure.u64(seedConfig.paymentTypeId),
-            tx.pure.u64(seedConfig.volume),
-            tx.pure.u32(seedConfig.quantity),
-        ],
-    });
+    for (const payment of seedConfig.payments) {
+        tx.moveCall({
+            target: `${worldConfig.packageId}::${MODULES.STORAGE_UNIT}::game_item_to_chain_inventory`,
+            typeArguments: [`${worldConfig.packageId}::${MODULES.CHARACTER}::Character`],
+            arguments: [
+                tx.object(storageUnitId),
+                tx.object(worldConfig.adminAcl),
+                tx.object(characterId),
+                ownerCap,
+                tx.pure.u64(payment.paymentItemId),
+                tx.pure.u64(payment.paymentTypeId),
+                tx.pure.u64(payment.volume),
+                tx.pure.u32(payment.quantity),
+            ],
+        });
+    }
 
     tx.moveCall({
         target: `${worldConfig.packageId}::${MODULES.CHARACTER}::return_owner_cap`,
@@ -123,12 +123,15 @@ async function seedPayment(
         { showEffects: true, showEvents: true }
     );
 
-    console.log("Payment item seeded successfully!");
+    console.log("Payment item(s) seeded successfully!");
     console.log("StorageUnit:", storageUnitId);
     console.log("Character:", characterId);
-    console.log("Payment type:", seedConfig.paymentTypeId.toString());
-    console.log("Payment quantity:", seedConfig.quantity);
-    console.log("Payment item id:", seedConfig.paymentItemId.toString());
+    for (const payment of seedConfig.payments) {
+        console.log(
+            `Payment type ${payment.paymentTypeId.toString()} x${payment.quantity}, ` +
+                `item id ${payment.paymentItemId.toString()}`
+        );
+    }
     console.log("Transaction digest:", result.digest);
 }
 
@@ -174,19 +177,6 @@ function parsePositiveBigInt(value: string, name: string): bigint {
     }
     const parsed = BigInt(value);
     if (parsed <= 0n) {
-        throw new Error(`${name} must be a positive integer`);
-    }
-    return parsed;
-}
-
-function readOptionalPositiveInteger(env: EnvLike, name: string, defaultValue: number): number {
-    const value = env[name];
-    if (!value) return defaultValue;
-    if (!/^[0-9]+$/.test(value)) {
-        throw new Error(`${name} must be a positive integer`);
-    }
-    const parsed = Number(value);
-    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
         throw new Error(`${name} must be a positive integer`);
     }
     return parsed;
