@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Transaction } from "@mysten/sui/transactions";
+import { buildSupplyTerminalListings } from "./listing-config";
 import { MODULE } from "./modules";
 import { requireBuilderPackageId } from "./extension-ids";
 import {
@@ -15,22 +16,24 @@ async function configureListing(ctx: ReturnType<typeof initializeContext>) {
     const builderPackageId = requireBuilderPackageId();
     const extensionConfigId = requireEnv("SUPPLY_TERMINAL_CONFIG_ID");
     const adminCapId = requireEnv("SUPPLY_TERMINAL_ADMIN_CAP_ID");
+    const listings = buildSupplyTerminalListings();
 
-    // Hardcoded per spec: Carbon Weave (84210) x1 for Feldspar Crystals (77800) x10
     const tx = new Transaction();
 
-    tx.moveCall({
-        target: `${builderPackageId}::${MODULE.SUPPLY_TERMINAL}::set_listing_config`,
-        arguments: [
-            tx.object(extensionConfigId),
-            tx.object(adminCapId),
-            tx.pure.bool(true),
-            tx.pure.u64(84210),
-            tx.pure.u32(1),
-            tx.pure.u64(77800),
-            tx.pure.u32(10),
-        ],
-    });
+    for (const listing of listings) {
+        tx.moveCall({
+            target: `${builderPackageId}::${MODULE.SUPPLY_TERMINAL}::set_listing_config`,
+            arguments: [
+                tx.object(extensionConfigId),
+                tx.object(adminCapId),
+                tx.pure.bool(true),
+                tx.pure.u64(listing.productTypeId),
+                tx.pure.u32(listing.productQuantity),
+                tx.pure.u64(listing.paymentTypeId),
+                tx.pure.u32(listing.paymentQuantity),
+            ],
+        });
+    }
 
     const result = await client.signAndExecuteTransaction({
         transaction: tx,
@@ -38,7 +41,13 @@ async function configureListing(ctx: ReturnType<typeof initializeContext>) {
         options: { showEffects: true, showEvents: true },
     });
 
-    console.log("Listing configured successfully!");
+    console.log(`Configured ${listings.length} Supply Terminal listing(s) successfully!`);
+    for (const listing of listings) {
+        console.log(
+            `Product ${listing.productTypeId.toString()} x${listing.productQuantity} for payment ` +
+                `${listing.paymentTypeId.toString()} x${listing.paymentQuantity}`
+        );
+    }
     console.log("Transaction digest:", result.digest);
 }
 
