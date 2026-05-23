@@ -1,8 +1,5 @@
 import * as assert from "node:assert/strict";
-import {
-    buildSupplyTerminalListings,
-    getSelectedExchangeProductTypeId,
-} from "./listing-config";
+import { buildSupplyTerminalListings, getSelectedExchangeProductTypeId } from "./listing-config";
 
 const BASE_ENV = {
     STORAGE_UNIT_ITEM_ID: "888800006",
