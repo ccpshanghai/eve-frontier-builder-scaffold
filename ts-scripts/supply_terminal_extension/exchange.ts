@@ -12,12 +12,14 @@ import {
     requireEnv,
 } from "../utils/helper";
 import { getCharacterOwnerCap } from "../helpers/character";
+import { getSelectedExchangeProductTypeId } from "./listing-config";
 import { assertSupplyTerminalExchangeReady } from "./preflight";
 
 async function exchange(
     ctx: ReturnType<typeof initializeContext>,
     storageUnitItemId: bigint,
-    characterItemId: bigint
+    characterItemId: bigint,
+    productTypeId: bigint
 ) {
     const { client, keypair, config } = ctx;
     const builderPackageId = requireBuilderPackageId();
@@ -43,6 +45,7 @@ async function exchange(
         characterId,
         characterItemId,
         characterOwnerCapId: playerOwnerCapId,
+        productTypeId,
     });
 
     const tx = new Transaction();
@@ -63,6 +66,7 @@ async function exchange(
             tx.object(storageUnitId),
             tx.object(characterId),
             ownerCap,
+            tx.pure.u64(productTypeId),
         ],
     });
 
@@ -103,8 +107,9 @@ async function main() {
 
         const storageUnitItemId = BigInt(requireEnv("STORAGE_UNIT_ITEM_ID"));
         const characterItemId = BigInt(requireEnv("CHARACTER_ITEM_ID"));
+        const productTypeId = getSelectedExchangeProductTypeId();
 
-        await exchange(ctx, storageUnitItemId, characterItemId);
+        await exchange(ctx, storageUnitItemId, characterItemId, productTypeId);
     } catch (error) {
         handleError(error);
     }

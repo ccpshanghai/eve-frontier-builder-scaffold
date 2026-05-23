@@ -30,7 +30,8 @@ export type SupplyTerminalPreflightState = {
     storageUnitStatus: string;
     storageUnitExtension: string;
     expectedAuthType: string;
-    listing: ListingConfigSnapshot | null;
+    selectedProductTypeId: string;
+    listings: ListingConfigSnapshot[];
     inventories: InventorySnapshot[];
 };
 
@@ -44,12 +45,18 @@ export type SupplyTerminalPreflightParams = {
     characterId: string;
     characterItemId: bigint;
     characterOwnerCapId: string;
+    productTypeId: bigint;
 };
 
 export function validateSupplyTerminalPreflight(state: SupplyTerminalPreflightState): void {
-    const listing = state.listing;
+    const listing =
+        state.listings.find(
+            (candidate) => candidate.productTypeId === state.selectedProductTypeId
+        ) ?? null;
     if (!listing) {
-        throw new Error(`Supply Terminal listing config is missing on ${state.storageUnitId}`);
+        throw new Error(
+            `Supply Terminal listing config is missing for product type ${state.selectedProductTypeId} on ${state.storageUnitId}`
+        );
     }
 
     if (!listing.enabled) {
@@ -116,8 +123,8 @@ async function loadSupplyTerminalPreflightState(
     config: WorldConfig,
     params: SupplyTerminalPreflightParams
 ): Promise<SupplyTerminalPreflightState> {
-    const [listing, storageUnit, inventories] = await Promise.all([
-        loadListingConfig(client, params.extensionConfigId, params.builderPackageId),
+    const [listings, storageUnit, inventories] = await Promise.all([
+        loadListingConfigs(client, params.extensionConfigId, params.builderPackageId),
         loadStorageUnit(client, params.storageUnitId),
         loadInventories(client, params.storageUnitId),
     ]);
@@ -132,41 +139,46 @@ async function loadSupplyTerminalPreflightState(
         storageUnitStatus: storageUnit.status,
         storageUnitExtension: storageUnit.extension,
         expectedAuthType: `${params.builderPackageId}::${MODULE.CONFIG}::SupplyTerminalAuth`,
-        listing,
+        selectedProductTypeId: params.productTypeId.toString(),
+        listings,
         inventories,
     };
 }
 
-async function loadListingConfig(
+async function loadListingConfigs(
     client: SuiJsonRpcClient,
     extensionConfigId: string,
     builderPackageId: string
-): Promise<ListingConfigSnapshot | null> {
+): Promise<ListingConfigSnapshot[]> {
     const fields = await getAllDynamicFields(client, extensionConfigId);
-    const listingField = fields.find((field) =>
+    const listingFields = fields.filter((field) =>
         String(field.objectType).endsWith(
             `${builderPackageId}::${MODULE.SUPPLY_TERMINAL}::ListingConfig`
         )
     );
 
-    if (!listingField) return null;
+    const listings = await Promise.all(
+        listingFields.map(async (field) => {
+            const fieldObject = await client.getDynamicFieldObject({
+                parentId: extensionConfigId,
+                name: field.name,
+            });
+            const value = getMoveObjectFields(fieldObject)?.value;
+            const listing = getTypedFields(value);
 
-    const fieldObject = await client.getDynamicFieldObject({
-        parentId: extensionConfigId,
-        name: listingField.name,
-    });
-    const value = getMoveObjectFields(fieldObject)?.value;
-    const listing = getTypedFields(value);
+            if (!listing) return null;
 
-    if (!listing) return null;
+            return {
+                enabled: Boolean(listing.enabled),
+                productTypeId: String(listing.product_type_id),
+                productQuantity: Number(listing.product_quantity),
+                paymentTypeId: String(listing.payment_type_id),
+                paymentQuantity: Number(listing.payment_quantity),
+            };
+        })
+    );
 
-    return {
-        enabled: Boolean(listing.enabled),
-        productTypeId: String(listing.product_type_id),
-        productQuantity: Number(listing.product_quantity),
-        paymentTypeId: String(listing.payment_type_id),
-        paymentQuantity: Number(listing.payment_quantity),
-    };
+    return listings.filter((listing): listing is ListingConfigSnapshot => listing !== null);
 }
 
 async function loadStorageUnit(

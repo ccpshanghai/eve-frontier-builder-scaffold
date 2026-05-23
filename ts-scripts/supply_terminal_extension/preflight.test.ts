@@ -1,13 +1,22 @@
 import * as assert from "node:assert/strict";
 import { validateSupplyTerminalPreflight } from "./preflight";
 
-const LISTING = {
-    enabled: true,
-    productTypeId: "84210",
-    productQuantity: 1,
-    paymentTypeId: "77800",
-    paymentQuantity: 10,
-};
+const LISTINGS = [
+    {
+        enabled: true,
+        productTypeId: "84210",
+        productQuantity: 1,
+        paymentTypeId: "77800",
+        paymentQuantity: 10,
+    },
+    {
+        enabled: true,
+        productTypeId: "84211",
+        productQuantity: 3,
+        paymentTypeId: "77801",
+        paymentQuantity: 25,
+    },
+];
 
 const BASE_STATE = {
     characterItemId: "811880",
@@ -19,15 +28,22 @@ const BASE_STATE = {
     storageUnitStatus: "ONLINE",
     storageUnitExtension: "0xpackage::config::SupplyTerminalAuth",
     expectedAuthType: "0xpackage::config::SupplyTerminalAuth",
-    listing: LISTING,
+    selectedProductTypeId: "84211",
+    listings: LISTINGS,
     inventories: [
         {
             key: "0xmachine-cap",
-            items: [{ typeId: "84210", quantity: 1 }],
+            items: [
+                { typeId: "84210", quantity: 1 },
+                { typeId: "84211", quantity: 3 },
+            ],
         },
         {
             key: "0xbuyer-cap",
-            items: [{ typeId: "77800", quantity: 10 }],
+            items: [
+                { typeId: "77800", quantity: 10 },
+                { typeId: "77801", quantity: 25 },
+            ],
         },
     ],
 };
@@ -51,6 +67,16 @@ assert.doesNotThrow(() => validateSupplyTerminalPreflight(cloneState()));
 
 {
     const state = cloneState();
+    state.selectedProductTypeId = "99999";
+
+    assertValidationError(
+        state,
+        /Supply Terminal listing config is missing for product type 99999/
+    );
+}
+
+{
+    const state = cloneState();
     state.inventories = state.inventories.filter((inventory) => inventory.key !== "0xbuyer-cap");
 
     assertValidationError(
@@ -61,21 +87,23 @@ assert.doesNotThrow(() => validateSupplyTerminalPreflight(cloneState()));
 
 {
     const state = cloneState();
-    state.inventories[1].items = [];
+    state.inventories[1].items = state.inventories[1].items.filter(
+        (item) => item.typeId !== "77801"
+    );
 
-    assertValidationError(state, /Buyer inventory does not contain payment type 77800 x10/);
+    assertValidationError(state, /Buyer inventory does not contain payment type 77801 x25/);
 }
 
 {
     const state = cloneState();
-    state.inventories[0].items[0].quantity = 0;
+    state.inventories[0].items.find((item) => item.typeId === "84211")!.quantity = 2;
 
-    assertValidationError(state, /Machine inventory does not contain product type 84210 x1/);
+    assertValidationError(state, /Machine inventory does not contain product type 84211 x3/);
 }
 
 {
     const state = cloneState();
-    state.listing.enabled = false;
+    state.listings[1].enabled = false;
 
     assertValidationError(state, /Supply Terminal listing is disabled/);
 }
