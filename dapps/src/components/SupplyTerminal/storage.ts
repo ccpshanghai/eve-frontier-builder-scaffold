@@ -1,132 +1,116 @@
-import { useEffect, useState } from "react";
-import { getObjectWithJson } from "@evefrontier/dapp-kit";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import {
+  createSupplyTerminalRpcClient,
+  loadSupplyTerminalSnapshot,
+  readSupplyTerminalEnv,
+} from "./chain";
+import type {
+  SupplyTerminalChainEnv,
+  SupplyTerminalChainSnapshot,
+  SupplyTerminalStorageSnapshot,
+} from "./types";
 
-export interface SupplyTerminalStorage {
-    id: string;
-    type: string;
-    status: string;
-    extension: string;
+interface SupplyTerminalStorageStateData {
+  snapshot: SupplyTerminalChainSnapshot | null;
+  storage: SupplyTerminalStorageSnapshot | null;
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
+  env: SupplyTerminalChainEnv | null;
 }
 
-interface SupplyTerminalStorageState {
-    storage: SupplyTerminalStorage | null;
-    loading: boolean;
-    error: string | null;
+export interface SupplyTerminalStorageState extends SupplyTerminalStorageStateData {
+  refetch: () => Promise<void>;
 }
 
-interface StorageObjectJson {
-    id?: string;
-    status?: {
-        status?: {
-            "@variant"?: string;
-        };
-    };
-    extension?: string;
-}
-
-interface ObjectWithJsonResult {
-    data?: {
-        object?: {
-            asMoveObject?: {
-                contents?: {
-                    type?: {
-                        repr?: string;
-                    };
-                    json?: StorageObjectJson;
-                };
-            };
-        };
-    };
-}
-
-const INITIAL_STATE: SupplyTerminalStorageState = {
-    storage: null,
-    loading: true,
-    error: null,
+type SupplyTerminalStorageOptions = {
+  accountAddress?: string | null;
 };
 
-export function getSupplyTerminalStorageObjectId(
-    env: ImportMetaEnv = import.meta.env,
-): string {
-    return env.VITE_OBJECT_ID?.trim() ?? "";
-}
+type StateCommit = Dispatch<SetStateAction<SupplyTerminalStorageStateData>>;
 
-export function parseSupplyTerminalStorageObject(
-    result: unknown,
-    objectId: string,
-): SupplyTerminalStorage | null {
-    const contents = (result as ObjectWithJsonResult).data?.object?.asMoveObject
-        ?.contents;
+const INITIAL_STATE: SupplyTerminalStorageStateData = {
+  snapshot: null,
+  storage: null,
+  loading: true,
+  refreshing: false,
+  error: null,
+  env: null,
+};
 
-    if (!contents?.json) {
-        return null;
-    }
+export function useSupplyTerminalStorage({
+  accountAddress,
+}: SupplyTerminalStorageOptions = {}): SupplyTerminalStorageState {
+  const [state, setState] =
+    useState<SupplyTerminalStorageStateData>(INITIAL_STATE);
 
-    const type = contents.type?.repr ?? "";
-    if (!type.includes("::storage_unit::StorageUnit")) {
-        return null;
-    }
+  const load = useCallback(
+    async (initial: boolean, commit: StateCommit = setState) => {
+      commit((previousState) => ({
+        ...previousState,
+        loading: initial,
+        refreshing: !initial,
+        error: null,
+      }));
 
-    return {
-        id: contents.json.id ?? objectId,
-        type,
-        status: contents.json.status?.status?.["@variant"] ?? "UNKNOWN",
-        extension: contents.json.extension ?? "",
+      try {
+        const env = readSupplyTerminalEnv();
+        const client = createSupplyTerminalRpcClient(env);
+        const snapshot = await loadSupplyTerminalSnapshot({
+          env,
+          client,
+          accountAddress,
+        });
+
+        commit({
+          snapshot,
+          storage: snapshot.storage,
+          loading: false,
+          refreshing: false,
+          error: null,
+          env,
+        });
+      } catch (err) {
+        commit({
+          snapshot: null,
+          storage: null,
+          loading: false,
+          refreshing: false,
+          error: err instanceof Error ? err.message : String(err),
+          env: null,
+        });
+      }
+    },
+    [accountAddress],
+  );
+
+  useEffect(() => {
+    let ignore = false;
+    const commit: StateCommit = (value) => {
+      if (!ignore) {
+        setState(value);
+      }
     };
-}
 
-export function useSupplyTerminalStorage(
-    objectId = getSupplyTerminalStorageObjectId(),
-): SupplyTerminalStorageState {
-    const [state, setState] =
-        useState<SupplyTerminalStorageState>(INITIAL_STATE);
+    void load(true, commit);
 
-    useEffect(() => {
-        let ignore = false;
-        const trimmedObjectId = objectId.trim();
+    return () => {
+      ignore = true;
+    };
+  }, [load]);
 
-        if (!trimmedObjectId) {
-            setState({
-                storage: null,
-                loading: false,
-                error: "VITE_OBJECT_ID is not configured",
-            });
-            return;
-        }
+  const refetch = useCallback(async () => {
+    await load(false);
+  }, [load]);
 
-        setState((previousState) => ({
-            ...previousState,
-            loading: true,
-            error: null,
-        }));
-
-        void getObjectWithJson(trimmedObjectId)
-            .then((result) => {
-                if (ignore) return;
-
-                setState({
-                    storage: parseSupplyTerminalStorageObject(
-                        result,
-                        trimmedObjectId,
-                    ),
-                    loading: false,
-                    error: null,
-                });
-            })
-            .catch((err: unknown) => {
-                if (ignore) return;
-
-                setState({
-                    storage: null,
-                    loading: false,
-                    error: err instanceof Error ? err.message : String(err),
-                });
-            });
-
-        return () => {
-            ignore = true;
-        };
-    }, [objectId]);
-
-    return state;
+  return {
+    ...state,
+    refetch,
+  };
 }
