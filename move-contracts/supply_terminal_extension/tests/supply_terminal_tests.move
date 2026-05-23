@@ -42,6 +42,16 @@ const PAYMENT_ITEM_ID: u64 = 77800;
 const PAYMENT_VOLUME: u64 = 1;
 const PAYMENT_QUANTITY: u32 = 10;
 const BUYER_PAYMENT_STOCK: u32 = 100;
+const PRODUCT_B_TYPE_ID: u64 = 84211;
+const PRODUCT_B_ITEM_ID: u64 = 84211;
+const PRODUCT_B_VOLUME: u64 = 2;
+const PRODUCT_B_QUANTITY: u32 = 3;
+const PRODUCT_B_STOCK: u32 = 15;
+const PAYMENT_B_TYPE_ID: u64 = 77801;
+const PAYMENT_B_ITEM_ID: u64 = 77801;
+const PAYMENT_B_VOLUME: u64 = 1;
+const PAYMENT_B_QUANTITY: u32 = 25;
+const BUYER_PAYMENT_B_STOCK: u32 = 100;
 
 fun setup_network_node(ts: &mut test_scenario::Scenario) {
     test_helpers::setup_world(ts);
@@ -225,10 +235,14 @@ fun mint_item<T: key>(
     test_scenario::return_shared(storage_unit);
 }
 
-fun setup_terminal_config(ts: &mut test_scenario::Scenario, enabled: bool) {
-    next_tx(ts, governor());
-    config::init_for_testing(ctx(ts));
-
+fun set_terminal_listing(
+    ts: &mut test_scenario::Scenario,
+    enabled: bool,
+    product_type_id: u64,
+    product_quantity: u32,
+    payment_type_id: u64,
+    payment_quantity: u32,
+) {
     next_tx(ts, governor());
     let admin_cap: AdminCap = test_scenario::take_from_sender<AdminCap>(ts);
     let mut extension_config = test_scenario::take_shared<ExtensionConfig>(ts);
@@ -236,13 +250,47 @@ fun setup_terminal_config(ts: &mut test_scenario::Scenario, enabled: bool) {
         &mut extension_config,
         &admin_cap,
         enabled,
+        product_type_id,
+        product_quantity,
+        payment_type_id,
+        payment_quantity,
+    );
+    test_scenario::return_to_sender(ts, admin_cap);
+    test_scenario::return_shared(extension_config);
+}
+
+fun setup_terminal_config(ts: &mut test_scenario::Scenario, enabled: bool) {
+    next_tx(ts, governor());
+    config::init_for_testing(ctx(ts));
+    set_terminal_listing(
+        ts,
+        enabled,
         PRODUCT_TYPE_ID,
         PRODUCT_QUANTITY,
         PAYMENT_TYPE_ID,
         PAYMENT_QUANTITY,
     );
-    test_scenario::return_to_sender(ts, admin_cap);
-    test_scenario::return_shared(extension_config);
+}
+
+fun setup_two_terminal_listings(ts: &mut test_scenario::Scenario) {
+    next_tx(ts, governor());
+    config::init_for_testing(ctx(ts));
+    set_terminal_listing(
+        ts,
+        true,
+        PRODUCT_TYPE_ID,
+        PRODUCT_QUANTITY,
+        PAYMENT_TYPE_ID,
+        PAYMENT_QUANTITY,
+    );
+    set_terminal_listing(
+        ts,
+        true,
+        PRODUCT_B_TYPE_ID,
+        PRODUCT_B_QUANTITY,
+        PAYMENT_B_TYPE_ID,
+        PAYMENT_B_QUANTITY,
+    );
 }
 
 fun authorize_supply_terminal(
@@ -317,7 +365,7 @@ fun test_add_and_read_rule() {
             77800,
             10,
         );
-        let key = supply_terminal::new_listing_config_key();
+        let key = supply_terminal::new_listing_config_key(PRODUCT_TYPE_ID);
         config::add_rule(&mut config, &admin_cap, key, listing);
 
         assert!(config::has_rule(&config, key), 0);
@@ -352,7 +400,7 @@ fun test_set_rule_replaces_existing() {
         let admin_cap: AdminCap = test_scenario::take_from_sender<AdminCap>(&scenario);
         let mut config: ExtensionConfig = test_scenario::take_shared<ExtensionConfig>(&scenario);
 
-        let key = supply_terminal::new_listing_config_key();
+        let key = supply_terminal::new_listing_config_key(PRODUCT_TYPE_ID);
         let listing = supply_terminal::new_listing_config(
             true,
             84210,
@@ -398,7 +446,7 @@ fun test_has_rule_returns_false_for_missing_key() {
     {
         let config: ExtensionConfig = test_scenario::take_shared<ExtensionConfig>(&scenario);
 
-        let key = supply_terminal::new_listing_config_key();
+        let key = supply_terminal::new_listing_config_key(PRODUCT_TYPE_ID);
         assert!(!config::has_rule(&config, key), 0);
 
         test_scenario::return_shared(config);
@@ -424,7 +472,7 @@ fun test_listing_enabled_returns_false_when_not_configured() {
     {
         let config: ExtensionConfig = test_scenario::take_shared<ExtensionConfig>(&scenario);
 
-        assert!(!supply_terminal::listing_enabled(&config), 0);
+        assert!(!supply_terminal::listing_enabled(&config, PRODUCT_TYPE_ID), 0);
 
         test_scenario::return_shared(config);
     };
@@ -447,7 +495,7 @@ fun test_view_functions_abort_when_not_configured() {
         let config: ExtensionConfig = test_scenario::take_shared<ExtensionConfig>(&scenario);
 
         // Should abort because listing not configured
-        supply_terminal::product_type_id(&config);
+        supply_terminal::product_type_id(&config, PRODUCT_TYPE_ID);
 
         // unreachable
         test_scenario::return_shared(config);
@@ -477,14 +525,14 @@ fun test_view_functions_return_configured_values() {
             77800,
             10,
         );
-        let key = supply_terminal::new_listing_config_key();
+        let key = supply_terminal::new_listing_config_key(PRODUCT_TYPE_ID);
         config::add_rule(&mut config, &admin_cap, key, listing);
 
-        assert!(supply_terminal::listing_enabled(&config), 0);
-        assert!(supply_terminal::product_type_id(&config) == 84210, 1);
-        assert!(supply_terminal::product_quantity(&config) == 1, 2);
-        assert!(supply_terminal::payment_type_id(&config) == 77800, 3);
-        assert!(supply_terminal::payment_quantity(&config) == 10, 4);
+        assert!(supply_terminal::listing_enabled(&config, PRODUCT_TYPE_ID), 0);
+        assert!(supply_terminal::product_type_id(&config, PRODUCT_TYPE_ID) == 84210, 1);
+        assert!(supply_terminal::product_quantity(&config, PRODUCT_TYPE_ID) == 1, 2);
+        assert!(supply_terminal::payment_type_id(&config, PRODUCT_TYPE_ID) == 77800, 3);
+        assert!(supply_terminal::payment_quantity(&config, PRODUCT_TYPE_ID) == 10, 4);
 
         test_scenario::return_to_sender(&scenario, admin_cap);
         test_scenario::return_shared(config);
@@ -502,11 +550,45 @@ fun test_set_listing_config_updates_listing_values() {
     {
         let config: ExtensionConfig = test_scenario::take_shared<ExtensionConfig>(&scenario);
 
-        assert!(supply_terminal::listing_enabled(&config), 0);
-        assert_eq!(supply_terminal::product_type_id(&config), PRODUCT_TYPE_ID);
-        assert_eq!(supply_terminal::product_quantity(&config), PRODUCT_QUANTITY);
-        assert_eq!(supply_terminal::payment_type_id(&config), PAYMENT_TYPE_ID);
-        assert_eq!(supply_terminal::payment_quantity(&config), PAYMENT_QUANTITY);
+        assert!(supply_terminal::listing_enabled(&config, PRODUCT_TYPE_ID), 0);
+        assert_eq!(supply_terminal::product_type_id(&config, PRODUCT_TYPE_ID), PRODUCT_TYPE_ID);
+        assert_eq!(supply_terminal::product_quantity(&config, PRODUCT_TYPE_ID), PRODUCT_QUANTITY);
+        assert_eq!(supply_terminal::payment_type_id(&config, PRODUCT_TYPE_ID), PAYMENT_TYPE_ID);
+        assert_eq!(supply_terminal::payment_quantity(&config, PRODUCT_TYPE_ID), PAYMENT_QUANTITY);
+
+        test_scenario::return_shared(config);
+    };
+
+    test_scenario::end(scenario);
+}
+
+#[test]
+fun test_set_listing_config_supports_multiple_product_keys() {
+    let mut scenario = test_scenario::begin(governor());
+    setup_two_terminal_listings(&mut scenario);
+
+    next_tx(&mut scenario, governor());
+    {
+        let config: ExtensionConfig = test_scenario::take_shared<ExtensionConfig>(&scenario);
+
+        assert!(supply_terminal::listing_enabled(&config, PRODUCT_TYPE_ID), 0);
+        assert!(supply_terminal::listing_enabled(&config, PRODUCT_B_TYPE_ID), 1);
+
+        assert_eq!(supply_terminal::product_type_id(&config, PRODUCT_TYPE_ID), PRODUCT_TYPE_ID);
+        assert_eq!(supply_terminal::product_quantity(&config, PRODUCT_TYPE_ID), PRODUCT_QUANTITY);
+        assert_eq!(supply_terminal::payment_type_id(&config, PRODUCT_TYPE_ID), PAYMENT_TYPE_ID);
+        assert_eq!(supply_terminal::payment_quantity(&config, PRODUCT_TYPE_ID), PAYMENT_QUANTITY);
+
+        assert_eq!(supply_terminal::product_type_id(&config, PRODUCT_B_TYPE_ID), PRODUCT_B_TYPE_ID);
+        assert_eq!(
+            supply_terminal::product_quantity(&config, PRODUCT_B_TYPE_ID),
+            PRODUCT_B_QUANTITY,
+        );
+        assert_eq!(supply_terminal::payment_type_id(&config, PRODUCT_B_TYPE_ID), PAYMENT_B_TYPE_ID);
+        assert_eq!(
+            supply_terminal::payment_quantity(&config, PRODUCT_B_TYPE_ID),
+            PAYMENT_B_QUANTITY,
+        );
 
         test_scenario::return_shared(config);
     };
@@ -583,6 +665,7 @@ fun test_exchange_moves_payment_to_machine_and_product_to_buyer() {
             &mut storage_unit,
             &buyer_character,
             &buyer_owner_cap,
+            PRODUCT_TYPE_ID,
             ctx(&mut scenario),
         );
 
@@ -613,6 +696,141 @@ fun test_exchange_moves_payment_to_machine_and_product_to_buyer() {
         assert_eq!(
             storage_unit.item_quantity(machine_owner_cap_id, PAYMENT_TYPE_ID),
             PAYMENT_QUANTITY,
+        );
+        test_scenario::return_shared(storage_unit);
+    };
+
+    test_scenario::end(scenario);
+}
+
+#[test]
+fun test_exchange_uses_selected_product_listing() {
+    let mut scenario = test_scenario::begin(governor());
+    setup_network_node(&mut scenario);
+    setup_two_terminal_listings(&mut scenario);
+
+    let buyer_character_id = create_character(&mut scenario, user_a(), CHARACTER_A_ITEM_ID);
+    let storage_owner_character_id = create_character(
+        &mut scenario,
+        user_b(),
+        CHARACTER_B_ITEM_ID,
+    );
+    let (storage_id, node_id) = create_storage_unit(&mut scenario, storage_owner_character_id);
+    online_storage_unit(
+        &mut scenario,
+        user_b(),
+        storage_owner_character_id,
+        storage_id,
+        node_id,
+    );
+
+    let machine_owner_cap_id = storage_owner_cap_id(&mut scenario, storage_id);
+    let buyer_owner_cap_id = character_owner_cap_id(&mut scenario, buyer_character_id);
+
+    mint_item<StorageUnit>(
+        &mut scenario,
+        storage_id,
+        storage_owner_character_id,
+        user_b(),
+        PRODUCT_ITEM_ID,
+        PRODUCT_TYPE_ID,
+        PRODUCT_VOLUME,
+        PRODUCT_STOCK,
+    );
+    mint_item<StorageUnit>(
+        &mut scenario,
+        storage_id,
+        storage_owner_character_id,
+        user_b(),
+        PRODUCT_B_ITEM_ID,
+        PRODUCT_B_TYPE_ID,
+        PRODUCT_B_VOLUME,
+        PRODUCT_B_STOCK,
+    );
+    mint_item<Character>(
+        &mut scenario,
+        storage_id,
+        buyer_character_id,
+        user_a(),
+        PAYMENT_ITEM_ID,
+        PAYMENT_TYPE_ID,
+        PAYMENT_VOLUME,
+        BUYER_PAYMENT_STOCK,
+    );
+    mint_item<Character>(
+        &mut scenario,
+        storage_id,
+        buyer_character_id,
+        user_a(),
+        PAYMENT_B_ITEM_ID,
+        PAYMENT_B_TYPE_ID,
+        PAYMENT_B_VOLUME,
+        BUYER_PAYMENT_B_STOCK,
+    );
+    authorize_supply_terminal(&mut scenario, storage_id, storage_owner_character_id);
+
+    next_tx(&mut scenario, user_a());
+    {
+        let extension_config = test_scenario::take_shared<ExtensionConfig>(&scenario);
+        let mut storage_unit = test_scenario::take_shared_by_id<StorageUnit>(
+            &scenario,
+            storage_id,
+        );
+        let mut buyer_character = test_scenario::take_shared_by_id<Character>(
+            &scenario,
+            buyer_character_id,
+        );
+        let (buyer_owner_cap, receipt) = buyer_character.borrow_owner_cap<Character>(
+            test_scenario::most_recent_receiving_ticket<OwnerCap<Character>>(
+                &buyer_character_id,
+            ),
+            ctx(&mut scenario),
+        );
+
+        supply_terminal::exchange<Character>(
+            &extension_config,
+            &mut storage_unit,
+            &buyer_character,
+            &buyer_owner_cap,
+            PRODUCT_B_TYPE_ID,
+            ctx(&mut scenario),
+        );
+
+        buyer_character.return_owner_cap(buyer_owner_cap, receipt);
+        test_scenario::return_shared(extension_config);
+        test_scenario::return_shared(storage_unit);
+        test_scenario::return_shared(buyer_character);
+    };
+
+    next_tx(&mut scenario, admin());
+    {
+        let storage_unit = test_scenario::take_shared_by_id<StorageUnit>(
+            &scenario,
+            storage_id,
+        );
+        assert_eq!(
+            storage_unit.item_quantity(buyer_owner_cap_id, PAYMENT_TYPE_ID),
+            BUYER_PAYMENT_STOCK,
+        );
+        assert_eq!(
+            storage_unit.item_quantity(buyer_owner_cap_id, PAYMENT_B_TYPE_ID),
+            BUYER_PAYMENT_B_STOCK - PAYMENT_B_QUANTITY,
+        );
+        assert_eq!(
+            storage_unit.item_quantity(buyer_owner_cap_id, PRODUCT_B_TYPE_ID),
+            PRODUCT_B_QUANTITY,
+        );
+        assert_eq!(
+            storage_unit.item_quantity(machine_owner_cap_id, PRODUCT_TYPE_ID),
+            PRODUCT_STOCK,
+        );
+        assert_eq!(
+            storage_unit.item_quantity(machine_owner_cap_id, PRODUCT_B_TYPE_ID),
+            PRODUCT_B_STOCK - PRODUCT_B_QUANTITY,
+        );
+        assert_eq!(
+            storage_unit.item_quantity(machine_owner_cap_id, PAYMENT_B_TYPE_ID),
+            PAYMENT_B_QUANTITY,
         );
         test_scenario::return_shared(storage_unit);
     };
@@ -686,6 +904,7 @@ fun test_exchange_aborts_when_listing_disabled() {
             &mut storage_unit,
             &buyer_character,
             &buyer_owner_cap,
+            PRODUCT_TYPE_ID,
             ctx(&mut scenario),
         );
 

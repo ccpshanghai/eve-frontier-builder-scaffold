@@ -12,7 +12,9 @@ use world::{access::OwnerCap, character::{Self, Character}, storage_unit::{Self,
 // ============================================================
 
 /// Key for the listing config dynamic field.
-public struct ListingConfigKey has copy, drop, store {}
+public struct ListingConfigKey has copy, drop, store {
+    product_type_id: u64,
+}
 
 /// Listing config stored on ExtensionConfig.
 public struct ListingConfig has drop, store {
@@ -41,31 +43,44 @@ public struct SupplyTerminalExchangeEvent has copy, drop {
 // View functions
 // ============================================================
 
-public fun listing_enabled(config: &ExtensionConfig): bool {
-    if (!config::has_rule(config, ListingConfigKey {})) {
+public fun listing_enabled(config: &ExtensionConfig, product_type_id: u64): bool {
+    let key = ListingConfigKey { product_type_id };
+    if (!config::has_rule(config, key)) {
         return false
     };
-    let listing: &ListingConfig = config::borrow_rule(config, ListingConfigKey {});
+    let listing: &ListingConfig = config::borrow_rule(config, key);
     listing.enabled
 }
 
-public fun product_type_id(config: &ExtensionConfig): u64 {
-    let listing: &ListingConfig = config::borrow_rule(config, ListingConfigKey {});
+public fun product_type_id(config: &ExtensionConfig, product_type_id: u64): u64 {
+    let listing: &ListingConfig = config::borrow_rule(
+        config,
+        ListingConfigKey { product_type_id },
+    );
     listing.product_type_id
 }
 
-public fun product_quantity(config: &ExtensionConfig): u32 {
-    let listing: &ListingConfig = config::borrow_rule(config, ListingConfigKey {});
+public fun product_quantity(config: &ExtensionConfig, product_type_id: u64): u32 {
+    let listing: &ListingConfig = config::borrow_rule(
+        config,
+        ListingConfigKey { product_type_id },
+    );
     listing.product_quantity
 }
 
-public fun payment_type_id(config: &ExtensionConfig): u64 {
-    let listing: &ListingConfig = config::borrow_rule(config, ListingConfigKey {});
+public fun payment_type_id(config: &ExtensionConfig, product_type_id: u64): u64 {
+    let listing: &ListingConfig = config::borrow_rule(
+        config,
+        ListingConfigKey { product_type_id },
+    );
     listing.payment_type_id
 }
 
-public fun payment_quantity(config: &ExtensionConfig): u32 {
-    let listing: &ListingConfig = config::borrow_rule(config, ListingConfigKey {});
+public fun payment_quantity(config: &ExtensionConfig, product_type_id: u64): u32 {
+    let listing: &ListingConfig = config::borrow_rule(
+        config,
+        ListingConfigKey { product_type_id },
+    );
     listing.payment_quantity
 }
 
@@ -85,7 +100,7 @@ public fun set_listing_config(
     config::set_rule<ListingConfigKey, ListingConfig>(
         extension_config,
         admin_cap,
-        ListingConfigKey {},
+        ListingConfigKey { product_type_id },
         ListingConfig {
             enabled,
             product_type_id,
@@ -110,11 +125,13 @@ public fun exchange<T: key>(
     storage_unit: &mut StorageUnit,
     buyer_character: &Character,
     buyer_owner_cap: &OwnerCap<T>,
+    product_type_id: u64,
     ctx: &mut TxContext,
 ) {
     // 1. Assert listing exists and is enabled
-    assert!(config::has_rule(extension_config, ListingConfigKey {}), 0);
-    let listing: &ListingConfig = config::borrow_rule(extension_config, ListingConfigKey {});
+    let key = ListingConfigKey { product_type_id };
+    assert!(config::has_rule(extension_config, key), 0);
+    let listing: &ListingConfig = config::borrow_rule(extension_config, key);
     assert!(listing.enabled, 1);
 
     // 2. Copy values before mutable operations
@@ -203,4 +220,6 @@ public fun listing_config_payment_type_id(config: &ListingConfig): u64 { config.
 public fun listing_config_payment_quantity(config: &ListingConfig): u32 { config.payment_quantity }
 
 #[test_only]
-public fun new_listing_config_key(): ListingConfigKey { ListingConfigKey {} }
+public fun new_listing_config_key(product_type_id: u64): ListingConfigKey {
+    ListingConfigKey { product_type_id }
+}
