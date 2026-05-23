@@ -98,6 +98,7 @@
 
 .st-terminal__status {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
@@ -217,6 +218,13 @@
     padding: 6px 9px;
     font-size: 10px;
     line-height: 1;
+    margin: 0;
+}
+
+.st-chip span {
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
 }
 
 .st-counter__ready,
