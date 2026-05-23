@@ -1,5 +1,6 @@
 import { SuiJsonRpcClient, type DynamicFieldName } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
+import { normalizeSuiAddress } from "@mysten/sui/utils";
 import { SUPPLY_TERMINAL_CONFIG } from "./config";
 import type {
   ListingConfig,
@@ -313,6 +314,102 @@ async function loadWalletCharacter(
   const owner = accountAddress?.trim();
   if (!owner) return null;
 
+  const characterFromInventory = await loadWalletCharacterFromInventories(
+    client,
+    env,
+    owner,
+    inventories,
+  );
+
+  if (characterFromInventory) return characterFromInventory;
+
+  return loadAddressOwnedWalletCharacter(client, env, owner, inventories);
+}
+
+async function loadWalletCharacterFromInventories(
+  client: SuiJsonRpcClient,
+  env: SupplyTerminalChainEnv,
+  accountAddress: string,
+  inventories: SupplyTerminalInventorySnapshot[],
+): Promise<SupplyTerminalCharacterSnapshot | null> {
+  const candidates = await Promise.all(
+    inventories.map((inventory) =>
+      loadWalletCharacterFromOwnerCap(
+        client,
+        env,
+        accountAddress,
+        inventory.key,
+      ).catch(() => null),
+    ),
+  );
+
+  return candidates.find((candidate) => Boolean(candidate)) ?? null;
+}
+
+async function loadWalletCharacterFromOwnerCap(
+  client: SuiJsonRpcClient,
+  env: SupplyTerminalChainEnv,
+  accountAddress: string,
+  ownerCapId: string,
+): Promise<SupplyTerminalCharacterSnapshot | null> {
+  const ownerCapObject = await client.getObject({
+    id: ownerCapId,
+    options: { showContent: true, showOwner: true, showType: true },
+  });
+
+  if (
+    !hasMoveObjectType(
+      ownerCapObject,
+      `${env.worldPackageId}::access::OwnerCap<${env.worldPackageId}::${CHARACTER_TYPE}>`,
+    )
+  ) {
+    return null;
+  }
+
+  const ownerCapFields = getMoveObjectFields(ownerCapObject);
+  const ownerAddress = readObjectOwnerAddress(ownerCapObject);
+  const characterId = readObjectId(
+    ownerCapFields?.authorized_object_id ??
+      ownerCapFields?.object_id ??
+      ownerAddress,
+  );
+
+  if (!characterId) return null;
+  if (ownerAddress && !sameSuiAddress(ownerAddress, characterId)) return null;
+
+  const characterObject = await client.getObject({
+    id: characterId,
+    options: { showContent: true, showType: true },
+  });
+
+  if (
+    !hasMoveObjectType(
+      characterObject,
+      `${env.worldPackageId}::${CHARACTER_TYPE}`,
+    )
+  ) {
+    return null;
+  }
+
+  const characterFields = getMoveObjectFields(characterObject);
+  const characterAddress = readObjectId(characterFields?.character_address);
+
+  if (!sameSuiAddress(characterAddress, accountAddress)) return null;
+
+  const characterOwnerCapId = readObjectId(characterFields?.owner_cap_id);
+  if (characterOwnerCapId && !sameSuiAddress(characterOwnerCapId, ownerCapId)) {
+    return null;
+  }
+
+  return { id: characterId, ownerCapId };
+}
+
+async function loadAddressOwnedWalletCharacter(
+  client: SuiJsonRpcClient,
+  env: SupplyTerminalChainEnv,
+  owner: string,
+  inventories: SupplyTerminalInventorySnapshot[],
+): Promise<SupplyTerminalCharacterSnapshot | null> {
   const result = await client.getOwnedObjects({
     owner,
     filter: {
@@ -394,6 +491,30 @@ function getMoveObjectFields(response: unknown): MoveFields | null {
   return getTypedFields(content?.fields ?? content);
 }
 
+function hasMoveObjectType(response: unknown, expectedType: string): boolean {
+  const objectType = getMoveObjectType(response);
+  if (!objectType) return false;
+
+  return normalizeMoveType(objectType) === normalizeMoveType(expectedType);
+}
+
+function getMoveObjectType(response: unknown): string | null {
+  const root = getRecord(response);
+  const data = getRecord(root?.data) ?? root;
+  const content = getRecord(data?.content);
+  const objectType = data?.type ?? content?.type ?? data?.objectType;
+
+  return typeof objectType === "string" ? objectType : null;
+}
+
+function readObjectOwnerAddress(response: unknown): string | null {
+  const root = getRecord(response);
+  const data = getRecord(root?.data) ?? root;
+  const owner = getRecord(data?.owner);
+
+  return readObjectId(owner?.AddressOwner);
+}
+
 function getTypedFields(value: unknown): MoveFields | null {
   const record = getRecord(value);
   if (!record) return null;
@@ -448,6 +569,40 @@ function readObjectId(value: unknown): string | null {
   const id = fields?.id ?? fields?.bytes ?? fields?.value;
 
   return typeof id === "string" ? id : null;
+}
+
+function sameSuiAddress(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const normalizedLeft = normalizeAddressForCompare(left);
+  const normalizedRight = normalizeAddressForCompare(right);
+
+  return (
+    Boolean(normalizedLeft && normalizedRight) &&
+    normalizedLeft === normalizedRight
+  );
+}
+
+function normalizeMoveType(value: string): string {
+  return value
+    .replace(
+      /0x[0-9a-fA-F]+/g,
+      (address) => normalizeAddressForCompare(address) ?? address.toLowerCase(),
+    )
+    .toLowerCase();
+}
+
+function normalizeAddressForCompare(
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+
+  try {
+    return normalizeSuiAddress(value);
+  } catch {
+    return value.toLowerCase();
+  }
 }
 
 function toFiniteNumber(value: unknown): number | null {
