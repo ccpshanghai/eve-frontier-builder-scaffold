@@ -57,7 +57,8 @@ export function SupplyTerminalView({
                     aria-label="Terminal status"
                 >
                     <span className="st-chip">
-                        STORAGE <span className="st-ok">{storageStatus}</span>
+                        <span>STORAGE</span>
+                        <span className="st-ok">{storageStatus}</span>
                     </span>
                     <span className="st-chip st-chip--hot">
                         {formatWalletAddress(walletAddress)}

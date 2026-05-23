@@ -213,9 +213,10 @@
 }
 
 .st-chip {
+    gap: 4px;
     padding: 6px 9px;
     font-size: 10px;
-    line-height: 1.2;
+    line-height: 1;
 }
 
 .st-counter__ready,
@@ -227,10 +228,6 @@
 
 .st-ok {
     color: var(--st-green);
-}
-
-.st-chip .st-ok {
-    margin-left: 4px;
 }
 
 .st-slot-grid {
