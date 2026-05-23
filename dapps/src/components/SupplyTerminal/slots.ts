@@ -58,6 +58,13 @@ function getBlockedSlotState(
         };
     }
 
+    if (input.walletConnected === false) {
+        return {
+            status: "wallet_disconnected",
+            disabledReason: "Connect wallet to trade",
+        };
+    }
+
     if (!input.paymentAvailable) {
         return {
             status: "insufficient_payment",
@@ -75,7 +82,9 @@ function getBlockedSlotState(
     return undefined;
 }
 
-function createActiveSlot(input: BuildSupplyTerminalSlotsInput): SupplyTerminalSlot {
+function createActiveSlot(
+    input: BuildSupplyTerminalSlotsInput,
+): SupplyTerminalSlot {
     const baseSlot = createEmptySlot(ACTIVE_SUPPLY_TERMINAL_SLOT_INDEX);
 
     if (input.sold) {
@@ -101,13 +110,16 @@ function createActiveSlot(input: BuildSupplyTerminalSlotsInput): SupplyTerminalS
 export function buildSupplyTerminalSlots(
     input: BuildSupplyTerminalSlotsInput,
 ): SupplyTerminalSlot[] {
-    return Array.from({ length: SUPPLY_TERMINAL_SLOT_COUNT }, (_, slotIndex) => {
-        const index = slotIndex + 1;
+    return Array.from(
+        { length: SUPPLY_TERMINAL_SLOT_COUNT },
+        (_, slotIndex) => {
+            const index = slotIndex + 1;
 
-        if (index === ACTIVE_SUPPLY_TERMINAL_SLOT_INDEX) {
-            return createActiveSlot(input);
-        }
+            if (index === ACTIVE_SUPPLY_TERMINAL_SLOT_INDEX) {
+                return createActiveSlot(input);
+            }
 
-        return createEmptySlot(index);
-    });
+            return createEmptySlot(index);
+        },
+    );
 }

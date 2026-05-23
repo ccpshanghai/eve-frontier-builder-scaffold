@@ -8,6 +8,7 @@ export interface SupplyTerminalViewProps {
     isOwner: boolean;
     extensionAuthorized: boolean;
     isAuthorizing: boolean;
+    storageStatus: string;
     walletAddress: string | null;
     slots: SupplyTerminalSlot[];
     events: ExchangeEvent[];
@@ -25,6 +26,7 @@ export function SupplyTerminalView({
     isOwner,
     extensionAuthorized,
     isAuthorizing,
+    storageStatus,
     walletAddress,
     slots,
     events,
@@ -44,13 +46,18 @@ export function SupplyTerminalView({
                     <div className="st-terminal__mark">ST</div>
                     <div>
                         <div className="st-eyebrow">EVE FRONTIER DAPP</div>
-                        <div className="st-terminal__title">SUPPLY TERMINAL</div>
+                        <div className="st-terminal__title">
+                            SUPPLY TERMINAL
+                        </div>
                     </div>
                 </div>
 
-                <div className="st-terminal__status" aria-label="Terminal status">
+                <div
+                    className="st-terminal__status"
+                    aria-label="Terminal status"
+                >
                     <span className="st-chip">
-                        STORAGE <span className="st-ok">ONLINE</span>
+                        STORAGE <span className="st-ok">{storageStatus}</span>
                     </span>
                     <span className="st-chip st-chip--hot">
                         {formatWalletAddress(walletAddress)}

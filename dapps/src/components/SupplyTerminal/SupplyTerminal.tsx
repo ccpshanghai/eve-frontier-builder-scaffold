@@ -6,6 +6,7 @@ import { buildSupplyTerminalSlots } from "./slots";
 import { SupplyTerminalView } from "./SupplyTerminalView";
 import type { ExchangeEvent, SupplyTerminalSlot } from "./types";
 import { SUPPLY_TERMINAL_CONFIG } from "./config";
+import { useSupplyTerminalStorage } from "./storage";
 import "./SupplyTerminal.css";
 
 export function SupplyTerminal() {
@@ -13,6 +14,11 @@ export function SupplyTerminal() {
     const { isConnected } = useConnection();
     const account = useCurrentAccount();
     const dAppKit = useDAppKit();
+    const {
+        storage,
+        loading: storageLoading,
+        error: storageError,
+    } = useSupplyTerminalStorage();
 
     const [events, setEvents] = useState<ExchangeEvent[]>([
         {
@@ -30,10 +36,16 @@ export function SupplyTerminal() {
     const [extensionAuthorized, setExtensionAuthorized] = useState(true);
     const tradeInFlightRef = useRef(false);
 
+    const walletConnected = isConnected && Boolean(account);
     const playerPaymentQuantity = 100;
     const machineStockQuantity = slotSold ? 0 : 1;
     const listingEnabled = true;
-    const owner = isOwner(assembly, account?.address);
+    const storageExtensionAuthorized = Boolean(
+        storage?.extension.includes("::config::SupplyTerminalAuth"),
+    );
+    const supplyTerminalAuthorized =
+        extensionAuthorized && storageExtensionAuthorized;
+    const owner = walletConnected ? isOwner(assembly, account?.address) : false;
 
     const addEvent = useCallback((event: Omit<ExchangeEvent, "timestamp">) => {
         setEvents((previousEvents) => [
@@ -46,27 +58,32 @@ export function SupplyTerminal() {
         () =>
             buildSupplyTerminalSlots({
                 paymentAvailable:
-                    playerPaymentQuantity >= SUPPLY_TERMINAL_CONFIG.payment.quantity,
+                    playerPaymentQuantity >=
+                    SUPPLY_TERMINAL_CONFIG.payment.quantity,
                 machineStockAvailable:
-                    machineStockQuantity >= SUPPLY_TERMINAL_CONFIG.product.quantity,
+                    machineStockQuantity >=
+                    SUPPLY_TERMINAL_CONFIG.product.quantity,
                 listingEnabled,
-                extensionAuthorized,
+                extensionAuthorized: supplyTerminalAuthorized,
                 submitting: tradeSubmitting,
                 sold: slotSold,
+                walletConnected,
             }),
         [
-            extensionAuthorized,
             listingEnabled,
             machineStockQuantity,
             playerPaymentQuantity,
             slotSold,
+            supplyTerminalAuthorized,
             tradeSubmitting,
+            walletConnected,
         ],
     );
     const currentSelectedTradeSlot = useMemo(
         () =>
             selectedTradeSlot
-                ? slots.find((slot) => slot.id === selectedTradeSlot.id) ?? null
+                ? (slots.find((slot) => slot.id === selectedTradeSlot.id) ??
+                  null)
                 : null,
         [selectedTradeSlot, slots],
     );
@@ -104,7 +121,8 @@ export function SupplyTerminal() {
             );
 
             if (!currentSlot?.canTrade) {
-                const message = "Selected slot is no longer available for trade";
+                const message =
+                    "Selected slot is no longer available for trade";
 
                 setTradeError(message);
                 addEvent({
@@ -114,7 +132,7 @@ export function SupplyTerminal() {
                 return;
             }
 
-            if (!assembly || !account) return;
+            if (!assembly || !account || !walletConnected) return;
 
             tradeInFlightRef.current = true;
             setTradeSubmitting(true);
@@ -150,7 +168,8 @@ export function SupplyTerminal() {
                     message: `${slot.label} empty`,
                 });
             } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message =
+                    err instanceof Error ? err.message : String(err);
 
                 setTradeError(message);
                 addEvent({
@@ -162,11 +181,19 @@ export function SupplyTerminal() {
                 setTradeSubmitting(false);
             }
         },
-        [account, addEvent, assembly, dAppKit, slots, tradeSubmitting],
+        [
+            account,
+            addEvent,
+            assembly,
+            dAppKit,
+            slots,
+            tradeSubmitting,
+            walletConnected,
+        ],
     );
 
     const handleAuthorize = useCallback(async () => {
-        if (!assembly || !account) return;
+        if (!assembly || !account || !walletConnected) return;
 
         setIsAuthorizing(true);
 
@@ -195,7 +222,7 @@ export function SupplyTerminal() {
         } finally {
             setIsAuthorizing(false);
         }
-    }, [account, addEvent, assembly, dAppKit]);
+    }, [account, addEvent, assembly, dAppKit, walletConnected]);
 
     const handleConfigure = useCallback(() => {
         addEvent({
@@ -204,31 +231,38 @@ export function SupplyTerminal() {
         });
     }, [addEvent]);
 
-    if (loading) {
+    if (storageLoading) {
+        return <div className="st-screen-message">Loading storage...</div>;
+    }
+
+    if (storageError) {
+        return <div className="st-screen-message">Error: {storageError}</div>;
+    }
+
+    if (!storage) {
+        return <div className="st-screen-message">No storage found</div>;
+    }
+
+    if (walletConnected && loading) {
         return <div className="st-screen-message">Loading assembly...</div>;
     }
 
-    if (smartObjectError) {
-        return <div className="st-screen-message">Error: {smartObjectError}</div>;
-    }
-
-    if (!assembly) {
-        return <div className="st-screen-message">No assembly found</div>;
-    }
-
-    if (!isConnected) {
+    if (walletConnected && smartObjectError) {
         return (
-            <div className="st-screen-message">
-                Connect your wallet to use the Supply Terminal
-            </div>
+            <div className="st-screen-message">Error: {smartObjectError}</div>
         );
+    }
+
+    if (walletConnected && !assembly) {
+        return <div className="st-screen-message">No assembly found</div>;
     }
 
     return (
         <SupplyTerminalView
             isOwner={owner}
-            extensionAuthorized={extensionAuthorized}
+            extensionAuthorized={supplyTerminalAuthorized}
             isAuthorizing={isAuthorizing}
+            storageStatus={storage.status}
             walletAddress={account?.address ?? null}
             slots={slots}
             events={events}

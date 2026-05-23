@@ -32,11 +32,14 @@ function createEvents(): ExchangeEvent[] {
     ];
 }
 
-function renderView(overrides: Partial<ComponentProps<typeof SupplyTerminalView>> = {}) {
+function renderView(
+    overrides: Partial<ComponentProps<typeof SupplyTerminalView>> = {},
+) {
     const props: ComponentProps<typeof SupplyTerminalView> = {
         isOwner: false,
         extensionAuthorized: true,
         isAuthorizing: false,
+        storageStatus: "ONLINE",
         walletAddress: "0x8f21aabbccddeeffdA90",
         slots: createReadySlots(),
         events: createEvents(),
@@ -71,20 +74,30 @@ describe("SupplyTerminalView", () => {
 
         const status = shell?.querySelector(".st-terminal__status");
         expect(status).not.toBeNull();
-        expect(within(status as HTMLElement).getByText("STORAGE")).toBeDefined();
+        expect(
+            within(status as HTMLElement).getByText("STORAGE"),
+        ).toBeDefined();
         expect(within(status as HTMLElement).getByText("ONLINE")).toBeDefined();
-        expect(within(status as HTMLElement).getByText("0x8f21...dA90")).toBeDefined();
+        expect(
+            within(status as HTMLElement).getByText("0x8f21...dA90"),
+        ).toBeDefined();
 
         const content = shell?.querySelector(".st-terminal__content");
         expect(content).not.toBeNull();
         expect(content?.children).toHaveLength(2);
-        expect(content?.children[0].querySelector(".st-slot-grid")).not.toBeNull();
-        expect(content?.children[1].classList.contains("st-event-log")).toBe(true);
+        expect(
+            content?.children[0].querySelector(".st-slot-grid"),
+        ).not.toBeNull();
+        expect(content?.children[1].classList.contains("st-event-log")).toBe(
+            true,
+        );
         expect(screen.getByText("SALE SLOTS")).toBeDefined();
         expect(screen.getByRole("region", { name: "EVENT LOG" })).toBe(
             content?.children[1],
         );
-        expect(screen.getByText("> Terminal inventory synchronized")).toBeDefined();
+        expect(
+            screen.getByText("> Terminal inventory synchronized"),
+        ).toBeDefined();
     });
 
     it("routes a ready slot trade action to onOpenTrade", () => {
@@ -117,7 +130,9 @@ describe("SupplyTerminalView", () => {
 
         expect(screen.getByText("EXTENSION NOT AUTHORIZED")).toBeDefined();
         expect(onAuthorize).toHaveBeenCalledTimes(1);
-        expect(screen.getByRole("dialog", { name: "Confirm trade" })).toBeDefined();
+        expect(
+            screen.getByRole("dialog", { name: "Confirm trade" }),
+        ).toBeDefined();
         expect(screen.getByText("Wallet rejected transaction")).toBeDefined();
 
         fireEvent.click(screen.getByRole("button", { name: "CANCEL" }));

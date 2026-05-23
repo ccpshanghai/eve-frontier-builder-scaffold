@@ -23,6 +23,7 @@ export interface ExchangeEvent {
 
 export type SupplyTerminalSlotStatus =
     | "ready"
+    | "wallet_disconnected"
     | "insufficient_payment"
     | "extension_not_authorized"
     | "out_of_stock"
@@ -55,4 +56,5 @@ export interface BuildSupplyTerminalSlotsInput {
     extensionAuthorized: boolean;
     submitting: boolean;
     sold: boolean;
+    walletConnected?: boolean;
 }

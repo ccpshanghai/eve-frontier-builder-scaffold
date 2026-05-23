@@ -7,6 +7,7 @@ interface VendingSlotProps {
 
 const STATUS_LABELS: Record<SupplyTerminalSlotStatus, string> = {
     ready: "READY",
+    wallet_disconnected: "NO WALLET",
     insufficient_payment: "NO PAYMENT",
     extension_not_authorized: "NO AUTH",
     out_of_stock: "NO STOCK",
@@ -76,7 +77,9 @@ export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
                     <div className="st-slot__kv">
                         <span>CHECK</span>
                         <span>
-                            {slot.canTrade ? "AVAILABLE" : slot.disabledReason ?? statusLabel}
+                            {slot.canTrade
+                                ? "AVAILABLE"
+                                : (slot.disabledReason ?? statusLabel)}
                         </span>
                     </div>
                 </div>
