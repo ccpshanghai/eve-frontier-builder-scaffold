@@ -19,6 +19,7 @@ export interface SupplyTerminalInventorySnapshot {
 export interface SupplyTerminalStorageSnapshot {
   id: string;
   ownerCapId: string;
+  ownerCharacterId?: string | null;
   status: string;
   extension: string;
 }

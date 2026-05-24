@@ -26,7 +26,7 @@ interface SupplyTerminalStorageStateData {
 }
 
 export interface SupplyTerminalStorageState extends SupplyTerminalStorageStateData {
-  refetch: () => Promise<void>;
+  refetch: () => Promise<SupplyTerminalChainSnapshot | null>;
 }
 
 type SupplyTerminalStorageOptions = {
@@ -76,6 +76,7 @@ export function useSupplyTerminalStorage({
           error: null,
           env,
         });
+        return snapshot;
       } catch (err) {
         commit({
           snapshot: null,
@@ -85,6 +86,7 @@ export function useSupplyTerminalStorage({
           error: err instanceof Error ? err.message : String(err),
           env: null,
         });
+        return null;
       }
     },
     [accountAddress],
@@ -106,7 +108,7 @@ export function useSupplyTerminalStorage({
   }, [load]);
 
   const refetch = useCallback(async () => {
-    await load(false);
+    return load(false);
   }, [load]);
 
   return {

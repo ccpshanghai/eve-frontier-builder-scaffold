@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import {
+  buildStorageUnitOwnerCapProbeTransaction,
+  buildSupplyTerminalAuthorizeExtensionTransaction,
   buildSupplyTerminalExchangeTransaction,
   loadSupplyTerminalSnapshot,
   parseInventoryItems,
+  probeStorageUnitOwnerCapBorrow,
   readSupplyTerminalEnv,
   selectInventoryForKey,
   validateSupplyTerminalListings,
@@ -20,6 +23,8 @@ const characterOwnerCapId =
   "0x0000000000000000000000000000000000000000000000000000000000000004";
 const sender =
   "0x0000000000000000000000000000000000000000000000000000000000000005";
+const storageOwnerCharacterId =
+  "0x0000000000000000000000000000000000000000000000000000000000000009";
 const worldPackageId =
   "0x0000000000000000000000000000000000000000000000000000000000000006";
 const supplyTerminalPackageId =
@@ -147,6 +152,54 @@ describe("Supply Terminal chain adapter", () => {
     });
 
     expect(snapshot.storage.status).toBe("ONLINE");
+  });
+
+  it("loads the storage owner character from the StorageUnit OwnerCap owner", async () => {
+    const client = {
+      getObject: async ({ id }: { id: string }) => {
+        if (id === storageId) {
+          return {
+            data: {
+              content: {
+                fields: {
+                  owner_cap_id: machineOwnerCapId,
+                  status: "ONLINE",
+                  extension: null,
+                },
+              },
+            },
+          };
+        }
+
+        if (id === machineOwnerCapId) {
+          return {
+            data: {
+              owner: { AddressOwner: storageOwnerCharacterId },
+            },
+          };
+        }
+
+        if (id === storageOwnerCharacterId) {
+          return {
+            data: {
+              type: `${worldPackageId}::character::Character`,
+            },
+          };
+        }
+
+        throw new Error(`Unexpected object lookup: ${id}`);
+      },
+      getDynamicFields: async () => ({ data: [], hasNextPage: false }),
+      getOwnedObjects: async () => ({ data: [] }),
+    };
+
+    const snapshot = await loadSupplyTerminalSnapshot({
+      env: baseEnv,
+      client: client as unknown as SuiJsonRpcClient,
+      accountAddress: sender,
+    });
+
+    expect(snapshot.storage.ownerCharacterId).toBe(storageOwnerCharacterId);
   });
 
   it("reports ready when listing, stock, payment, and wallet character are present", () => {
@@ -468,5 +521,142 @@ describe("Supply Terminal chain adapter", () => {
       },
     ]);
     expect(json.commands[1]?.MoveCall.arguments).toHaveLength(5);
+  });
+
+  it("builds the storage owner-cap probe Move call sequence", async () => {
+    const transaction = buildStorageUnitOwnerCapProbeTransaction({
+      env: baseEnv,
+      snapshot: baseSnapshot,
+      sender,
+    });
+
+    const json = JSON.parse(await transaction.toJSON()) as {
+      commands: Array<{
+        MoveCall: {
+          package: string;
+          module: string;
+          function: string;
+        };
+      }>;
+    };
+
+    expect(json.commands.map((command) => command.MoveCall)).toMatchObject([
+      {
+        package: worldPackageId,
+        module: "character",
+        function: "borrow_owner_cap",
+      },
+      {
+        package: worldPackageId,
+        module: "character",
+        function: "return_owner_cap",
+      },
+    ]);
+  });
+
+  it("uses the StorageUnit owner character when probing storage owner-cap access", async () => {
+    const transaction = buildStorageUnitOwnerCapProbeTransaction({
+      env: baseEnv,
+      snapshot: {
+        ...baseSnapshot,
+        storage: {
+          ...baseSnapshot.storage,
+          ownerCharacterId: storageOwnerCharacterId,
+        },
+      },
+      sender,
+    });
+
+    const json = JSON.parse(await transaction.toJSON()) as {
+      inputs: Array<{
+        UnresolvedObject?: {
+          objectId: string;
+        };
+      }>;
+    };
+
+    expect(json.inputs[0]?.UnresolvedObject?.objectId).toBe(
+      storageOwnerCharacterId,
+    );
+  });
+
+  it("checks storage ownership through devInspect owner-cap borrow", async () => {
+    const devInspectTransactionBlock = vi.fn().mockResolvedValue({
+      effects: { status: { status: "success" } },
+    });
+    const client = {
+      devInspectTransactionBlock,
+    } as unknown as SuiJsonRpcClient;
+
+    await expect(
+      probeStorageUnitOwnerCapBorrow({
+        env: baseEnv,
+        snapshot: baseSnapshot,
+        sender,
+        client,
+      }),
+    ).resolves.toBe(true);
+
+    expect(devInspectTransactionBlock).toHaveBeenCalledWith({
+      sender,
+      transactionBlock: expect.anything(),
+    });
+  });
+
+  it("returns false when storage owner-cap borrow cannot be inspected", async () => {
+    const client = {
+      devInspectTransactionBlock: vi
+        .fn()
+        .mockRejectedValue(new Error("not owner")),
+    } as unknown as SuiJsonRpcClient;
+
+    await expect(
+      probeStorageUnitOwnerCapBorrow({
+        env: baseEnv,
+        snapshot: baseSnapshot,
+        sender,
+        client,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("builds the borrow, authorize extension, and return Move call sequence", async () => {
+    const transaction = buildSupplyTerminalAuthorizeExtensionTransaction({
+      env: baseEnv,
+      snapshot: baseSnapshot,
+      sender,
+    });
+
+    const json = JSON.parse(await transaction.toJSON()) as {
+      commands: Array<{
+        MoveCall: {
+          package: string;
+          module: string;
+          function: string;
+          typeArguments?: string[];
+        };
+      }>;
+    };
+
+    expect(json.commands.map((command) => command.MoveCall)).toMatchObject([
+      {
+        package: worldPackageId,
+        module: "character",
+        function: "borrow_owner_cap",
+      },
+      {
+        package: worldPackageId,
+        module: "storage_unit",
+        function: "authorize_extension",
+      },
+      {
+        package: worldPackageId,
+        module: "character",
+        function: "return_owner_cap",
+      },
+    ]);
+    expect(json.commands[1]?.MoveCall.typeArguments).toEqual([
+      `${supplyTerminalPackageId}::config::SupplyTerminalAuth`,
+    ]);
   });
 });

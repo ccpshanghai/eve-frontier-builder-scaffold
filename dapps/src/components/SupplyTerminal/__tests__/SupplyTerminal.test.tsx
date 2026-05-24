@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { SupplyTerminal } from "../SupplyTerminal";
 import type {
   SupplyTerminalChainEnv,
@@ -13,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   useSupplyTerminalStorage: vi.fn(),
   signAndExecuteTransaction: vi.fn(),
   refetch: vi.fn(),
+  probeStorageUnitOwnerCapBorrow: vi.fn(),
+  buildSupplyTerminalAuthorizeExtensionTransaction: vi.fn(),
 }));
 
 const storageId =
@@ -44,6 +52,17 @@ vi.mock("@mysten/dapp-kit-react", () => ({
 vi.mock("../storage", () => ({
   useSupplyTerminalStorage: mocks.useSupplyTerminalStorage,
 }));
+
+vi.mock("../chain", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../chain")>();
+
+  return {
+    ...actual,
+    probeStorageUnitOwnerCapBorrow: mocks.probeStorageUnitOwnerCapBorrow,
+    buildSupplyTerminalAuthorizeExtensionTransaction:
+      mocks.buildSupplyTerminalAuthorizeExtensionTransaction,
+  };
+});
 
 const env: SupplyTerminalChainEnv = {
   storageObjectId: storageId,
@@ -105,6 +124,10 @@ describe("SupplyTerminal", () => {
       signAndExecuteTransaction: mocks.signAndExecuteTransaction,
     });
     mocks.refetch.mockResolvedValue(undefined);
+    mocks.probeStorageUnitOwnerCapBorrow.mockResolvedValue(false);
+    mocks.buildSupplyTerminalAuthorizeExtensionTransaction.mockReturnValue({
+      toJSON: async () => JSON.stringify({ commands: [] }),
+    });
     mockStorage(
       createSnapshot({
         buyerInventory: [],
@@ -126,7 +149,9 @@ describe("SupplyTerminal", () => {
 
     expect(screen.queryByText("No assembly found")).toBeNull();
     expect(screen.getByText("SUPPLY TERMINAL")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Connect Wallet" })).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "Connect Wallet" }),
+    ).toBeDefined();
 
     const tradeButton = screen.getByRole("button", { name: "Connect Wallet" });
     expect(tradeButton.hasAttribute("disabled")).toBe(true);
@@ -200,9 +225,9 @@ describe("SupplyTerminal", () => {
     const dialog = screen.getByRole("dialog", { name: "Confirm trade" });
     expect(within(dialog).getByText("Slot 02")).toBeDefined();
     expect(within(dialog).getByText("Item Type 84211 x3")).toBeDefined();
-    expect(within(dialog).getAllByText("Item Type 77801 x25").length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      within(dialog).getAllByText("Item Type 77801 x25").length,
+    ).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "CONFIRM TRADE" }));
 
@@ -224,5 +249,96 @@ describe("SupplyTerminal", () => {
     };
 
     expect(json.commands[1]?.MoveCall.arguments).toHaveLength(5);
+  });
+
+  it("logs and skips the authorization prompt when the connected wallet cannot borrow the storage owner cap", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    mocks.useConnection.mockReturnValue({ isConnected: true });
+    mocks.useCurrentAccount.mockReturnValue({ address: sender });
+    mockStorage(
+      createSnapshot({
+        storage: {
+          id: storageId,
+          ownerCapId: machineOwnerCapId,
+          status: "ONLINE",
+          extension: "",
+        },
+      }),
+    );
+
+    render(<SupplyTerminal />);
+
+    await waitFor(() => {
+      expect(mocks.probeStorageUnitOwnerCapBorrow).toHaveBeenCalledTimes(1);
+    });
+
+    expect(info).toHaveBeenCalledWith(
+      "Connected wallet is not the StorageUnit owner; extension authorization skipped",
+    );
+    expect(
+      screen.getByText(
+        /Connected wallet is not the StorageUnit owner; extension authorization skipped/,
+      ),
+    ).toBeDefined();
+    expect(
+      screen.queryByRole("dialog", { name: "Authorize extension" }),
+    ).toBeNull();
+  });
+
+  it("prompts the storage owner to authorize an unbound extension and closes after refreshed state confirms it", async () => {
+    mocks.useConnection.mockReturnValue({ isConnected: true });
+    mocks.useCurrentAccount.mockReturnValue({ address: sender });
+    mocks.probeStorageUnitOwnerCapBorrow.mockResolvedValue(true);
+
+    const unboundSnapshot = createSnapshot({
+      storage: {
+        id: storageId,
+        ownerCapId: machineOwnerCapId,
+        status: "ONLINE",
+        extension: "",
+      },
+    });
+    const authorizedSnapshot = createSnapshot();
+
+    mockStorage(unboundSnapshot);
+    mocks.refetch.mockResolvedValue(authorizedSnapshot);
+
+    render(<SupplyTerminal />);
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Authorize extension",
+    });
+    expect(
+      within(dialog).getByText("Bind Supply Terminal Extension"),
+    ).toBeDefined();
+    expect(
+      within(dialog).getByText("Supply Terminal authorized"),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "AUTHORIZE" }));
+
+    await waitFor(() => {
+      expect(mocks.signAndExecuteTransaction).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      mocks.buildSupplyTerminalAuthorizeExtensionTransaction,
+    ).toHaveBeenCalledWith({
+      env,
+      snapshot: unboundSnapshot,
+      sender,
+    });
+    expect(
+      mocks.signAndExecuteTransaction.mock.calls[0]?.[0].transaction,
+    ).toBeDefined();
+
+    await waitFor(() => {
+      expect(mocks.refetch).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Authorize extension" }),
+      ).toBeNull();
+    });
+    expect(screen.getByText(/Extension authorization confirmed/)).toBeDefined();
   });
 });
