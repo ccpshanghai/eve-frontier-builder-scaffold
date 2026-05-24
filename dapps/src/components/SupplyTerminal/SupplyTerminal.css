@@ -234,6 +234,15 @@
     color: var(--st-orange);
 }
 
+.st-chip button {
+    all: unset;
+    font: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
 .st-ok {
     color: var(--st-green);
 }
@@ -378,7 +387,7 @@
 .st-slot__detail {
     margin-top: 7px;
     color: #bdb29a;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.35;
     overflow-wrap: anywhere;
 }
@@ -607,13 +616,16 @@
         grid-template-columns: 1fr;
     }
 
-    .st-slot__body {
-        grid-template-columns: 1fr;
+    .st-slot__item-icon,
+    .st-slot__empty-icon {
+        height: 96px;
+        width: 80px;
     }
 
     .st-slot__item-icon,
     .st-slot__empty-icon {
         height: 96px;
+        width: 80px;
     }
 
     .st-modal-backdrop {

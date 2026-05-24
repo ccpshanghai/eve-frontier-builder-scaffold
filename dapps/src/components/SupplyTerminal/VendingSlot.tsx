@@ -17,6 +17,18 @@ const STATUS_LABELS: Record<SupplyTerminalSlotStatus, string> = {
     sold: "EMPTY",
 };
 
+const BUTTON_LABELS: Record<SupplyTerminalSlotStatus, string> = {
+    ready: "TRADE",
+    wallet_disconnected: "Connect Wallet",
+    insufficient_payment: "Insufficient Payment",
+    extension_not_authorized: "Extension Unavailable",
+    out_of_stock: "Out of Stock",
+    listing_disabled: "Disabled",
+    submitting: "Pending...",
+    empty: "Empty",
+    sold: "Empty",
+};
+
 function getStatusLabel(status: SupplyTerminalSlotStatus): string {
     return STATUS_LABELS[status] ?? status.toUpperCase();
 }
@@ -28,7 +40,7 @@ function isEmptyAffordance(slot: SupplyTerminalSlot): boolean {
 export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
     const isEmpty = isEmptyAffordance(slot);
     const statusLabel = getStatusLabel(slot.status);
-    const actionLabel = isEmpty ? "EMPTY" : "TRADE";
+    const actionLabel = BUTTON_LABELS[slot.status] ?? "TRADE";
 
     function handleTrade() {
         if (!slot.canTrade) {
@@ -58,30 +70,19 @@ export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
                     <div className="st-slot__name">
                         {isEmpty ? "No Item" : slot.reward?.name}
                     </div>
-                    <div className="st-slot__detail">
-                        {isEmpty
-                            ? "--"
-                            : `REWARD x${slot.reward?.quantity ?? 0} · ITEMID ${slot.reward?.sandboxItemId ?? "--"}`}
-                    </div>
 
                     <div className="st-slot__separator" />
 
-                    <div className="st-slot__kv">
-                        <span>PRICE</span>
-                        <span>
-                            {isEmpty
-                                ? "--"
-                                : `${slot.price?.name ?? "--"} x${slot.price?.quantity ?? 0}`}
-                        </span>
-                    </div>
-                    <div className="st-slot__kv">
-                        <span>CHECK</span>
-                        <span>
-                            {slot.canTrade
-                                ? "AVAILABLE"
-                                : (slot.disabledReason ?? statusLabel)}
-                        </span>
-                    </div>
+                    {!isEmpty && (
+                        <div className="st-slot__detail">
+                            Stock: {slot.reward?.quantity ?? 0}{slot.machineStockQuantity != null ? ` / ${slot.machineStockQuantity}` : ""}
+                        </div>
+                    )}
+                    {!isEmpty && (
+                        <div className="st-slot__detail">
+                            Price: {slot.price?.name ?? "--"} x{slot.price?.quantity ?? 0}
+                        </div>
+                    )}
                 </div>
             </div>
 

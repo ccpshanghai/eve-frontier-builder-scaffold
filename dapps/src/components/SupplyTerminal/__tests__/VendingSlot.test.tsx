@@ -20,6 +20,7 @@ function createSlot(overrides: Partial<SupplyTerminalSlot> = {}): SupplyTerminal
             quantity: 10,
         },
         canTrade: true,
+        machineStockQuantity: 1,
         ...overrides,
     };
 }
@@ -34,8 +35,8 @@ describe("VendingSlot", () => {
         expect(screen.getByText("SLOT 01")).toBeDefined();
         expect(screen.getByText("READY")).toBeDefined();
         expect(screen.getByText("Carbon Weave")).toBeDefined();
-        expect(screen.getByText("REWARD x1 · ITEMID 84210")).toBeDefined();
-        expect(screen.getByText("Feldspar Crystals x10")).toBeDefined();
+        expect(screen.getByText("Stock: 1 / 1")).toBeDefined();
+        expect(screen.getByText("Price: Feldspar Crystals x10")).toBeDefined();
 
         const button = screen.getByRole("button", { name: "TRADE" });
         expect(button.hasAttribute("disabled")).toBe(false);
@@ -67,7 +68,7 @@ describe("VendingSlot", () => {
         expect(screen.getByText("No Item")).toBeDefined();
         expect(screen.getAllByText("--").length).toBeGreaterThan(0);
 
-        const button = screen.getByRole("button", { name: "EMPTY" });
+        const button = screen.getByRole("button", { name: "Empty" });
         expect(button.hasAttribute("disabled")).toBe(true);
         fireEvent.click(button);
         expect(onTrade).not.toHaveBeenCalled();
@@ -85,11 +86,11 @@ describe("VendingSlot", () => {
 
         expect(screen.getAllByText("EMPTY").length).toBeGreaterThan(0);
         expect(
-            screen.getByRole("button", { name: "EMPTY" }).hasAttribute("disabled"),
+            screen.getByRole("button", { name: "Empty" }).hasAttribute("disabled"),
         ).toBe(true);
     });
 
-    it("shows disabled reason and prevents trade for blocked active slots", () => {
+    it("shows disabled reason on button and prevents trade for blocked active slots", () => {
         const onTrade = vi.fn();
         const slot = createSlot({
             status: "insufficient_payment",
@@ -100,9 +101,8 @@ describe("VendingSlot", () => {
         render(<VendingSlot slot={slot} onTrade={onTrade} />);
 
         expect(screen.getByText("NO PAYMENT")).toBeDefined();
-        expect(screen.getByText("Requires Feldspar Crystals x10")).toBeDefined();
 
-        const button = screen.getByRole("button", { name: "TRADE" });
+        const button = screen.getByRole("button", { name: "Insufficient Payment" });
         expect(button.hasAttribute("disabled")).toBe(true);
         fireEvent.click(button);
         expect(onTrade).not.toHaveBeenCalled();
@@ -111,7 +111,6 @@ describe("VendingSlot", () => {
     it.each([
         ["extension_not_authorized", "NO AUTH"],
         ["out_of_stock", "NO STOCK"],
-        ["listing_disabled", "DISABLED"],
         ["submitting", "SUBMITTING"],
     ] as const)("maps %s status to %s", (status, label) => {
         render(

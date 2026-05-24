@@ -271,6 +271,7 @@ async function loadListingConfigs(
 
   return listings
     .filter((listing): listing is ListingConfig => Boolean(listing))
+    .filter((listing) => listing.enabled)
     .sort((left, right) => left.productTypeId - right.productTypeId);
 }
 

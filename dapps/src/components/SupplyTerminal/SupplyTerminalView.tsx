@@ -1,3 +1,5 @@
+import { useConnection } from "@evefrontier/dapp-kit";
+import { useCurrentAccount } from "@mysten/dapp-kit-react";
 import { EventLog } from "./EventLog";
 import { OwnerControls } from "./OwnerControls";
 import { TradeConfirmDialog } from "./TradeConfirmDialog";
@@ -9,7 +11,6 @@ export interface SupplyTerminalViewProps {
     extensionAuthorized: boolean;
     isAuthorizing: boolean;
     storageStatus: string;
-    walletAddress: string | null;
     slots: SupplyTerminalSlot[];
     events: ExchangeEvent[];
     selectedTradeSlot: SupplyTerminalSlot | null;
@@ -27,7 +28,6 @@ export function SupplyTerminalView({
     extensionAuthorized,
     isAuthorizing,
     storageStatus,
-    walletAddress,
     slots,
     events,
     selectedTradeSlot,
@@ -39,6 +39,9 @@ export function SupplyTerminalView({
     onCancelTrade,
     onConfirmTrade,
 }: SupplyTerminalViewProps) {
+    const { handleConnect, handleDisconnect } = useConnection();
+    const account = useCurrentAccount();
+
     return (
         <div className="st-terminal-shell">
             <header className="st-terminal__topbar">
@@ -61,7 +64,17 @@ export function SupplyTerminalView({
                         <span className="st-ok">{storageStatus}</span>
                     </span>
                     <span className="st-chip st-chip--hot">
-                        {formatWalletAddress(walletAddress)}
+                        <button
+                            onClick={() =>
+                                account?.address
+                                    ? handleDisconnect()
+                                    : handleConnect()
+                            }
+                        >
+                            {account
+                                ? formatWalletAddress(account.address)
+                                : "Connect"}
+                        </button>
                     </span>
                 </div>
             </header>

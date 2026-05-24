@@ -46,7 +46,7 @@ describe("VendingGrid", () => {
     expect(screen.getByText("SALE SLOTS")).toBeDefined();
     expect(
       screen.getByText(
-        "Payment check uses player StorageUnit-owned inventory. Empty slots are future vending bays.",
+        "Payment check uses player StorageUnit-owned inventory.",
       ),
     ).toBeDefined();
     expect(screen.getByText("SLOT 01")).toBeDefined();
@@ -105,7 +105,7 @@ describe("VendingGrid", () => {
     const onTrade = vi.fn();
 
     render(<VendingGrid slots={slots} onTrade={onTrade} />);
-    fireEvent.click(screen.getByRole("button", { name: "TRADE" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insufficient Payment" }));
 
     expect(onTrade).not.toHaveBeenCalled();
   });

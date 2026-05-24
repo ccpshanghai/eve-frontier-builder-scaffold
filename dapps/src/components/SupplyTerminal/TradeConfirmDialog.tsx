@@ -151,7 +151,12 @@ export function TradeConfirmDialog({
                     </div>
                     <div className="st-modal__row">
                         <span>ON SUCCESS</span>
-                        <span>{slotLabel} becomes EMPTY</span>
+                        <span>
+                            {slot.machineStockQuantity != null &&
+                            slot.machineStockQuantity - slot.reward.quantity > 0
+                                ? `Stock: ${slot.machineStockQuantity - slot.reward.quantity}`
+                                : `${slotLabel} becomes EMPTY`}
+                        </span>
                     </div>
 
                     {error ? <div className="st-modal__error">{error}</div> : null}

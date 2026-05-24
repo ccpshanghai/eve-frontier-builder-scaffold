@@ -105,7 +105,7 @@ describe("buildSupplyTerminalSlots", () => {
     });
   });
 
-  it("disables Slot 01 when the listing is disabled", () => {
+  it("treats disabled listing as empty slot", () => {
     const slots = buildSupplyTerminalSlots({
       preflightViews: [
         createPreflight(carbonListing, {
@@ -117,9 +117,8 @@ describe("buildSupplyTerminalSlots", () => {
     });
 
     expect(slots[0]).toMatchObject({
-      status: "listing_disabled",
+      status: "empty",
       canTrade: false,
-      disabledReason: "Listing disabled",
     });
   });
 

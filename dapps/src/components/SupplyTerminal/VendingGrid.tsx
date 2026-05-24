@@ -22,8 +22,7 @@ export function VendingGrid({ slots, onTrade }: VendingGridProps) {
                         SALE SLOTS
                     </div>
                     <div className="st-panel__note">
-                        Payment check uses player StorageUnit-owned inventory. Empty slots
-                        are future vending bays.
+                        Payment check uses player StorageUnit-owned inventory.
                     </div>
                 </div>
 

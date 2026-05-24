@@ -66,8 +66,9 @@ export function SupplyTerminal() {
         preflightViews,
         submitting: tradeSubmitting || storageRefreshing,
         walletConnected,
+        machineInventory: snapshot?.machineInventory,
       }),
-    [preflightViews, storageRefreshing, tradeSubmitting, walletConnected],
+    [preflightViews, storageRefreshing, tradeSubmitting, walletConnected, snapshot],
   );
   const currentSelectedTradeSlot = useMemo(
     () =>
@@ -258,7 +259,6 @@ export function SupplyTerminal() {
       extensionAuthorized={extensionAuthorized}
       isAuthorizing={isAuthorizing}
       storageStatus={storage.status}
-      walletAddress={account?.address ?? null}
       slots={slots}
       events={events}
       selectedTradeSlot={currentSelectedTradeSlot}

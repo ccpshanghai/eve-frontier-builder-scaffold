@@ -110,6 +110,10 @@ function createActiveSlot(
 
   const blockedState = getBlockedSlotState(input, preflight);
   const status = blockedState?.status ?? "ready";
+  const machineStockQuantity =
+    input.machineInventory?.find(
+      (item) => item.typeId === listing.productTypeId,
+    )?.quantity;
 
   return {
     ...baseSlot,
@@ -119,6 +123,7 @@ function createActiveSlot(
     productTypeId: listing.productTypeId,
     canTrade: status === "ready",
     disabledReason: blockedState?.disabledReason,
+    machineStockQuantity,
   };
 }
 
@@ -141,7 +146,7 @@ export function buildSupplyTerminalSlots(
     const index = slotIndex + 1;
     const preflight = input.preflightViews[slotIndex];
 
-    if (preflight) {
+    if (preflight && preflight.listingEnabled) {
       return createActiveSlot(input, preflight, index);
     }
 

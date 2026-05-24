@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SupplyTerminal } from "../SupplyTerminal";
 import type {
   SupplyTerminalChainEnv,
@@ -126,9 +126,9 @@ describe("SupplyTerminal", () => {
 
     expect(screen.queryByText("No assembly found")).toBeNull();
     expect(screen.getByText("SUPPLY TERMINAL")).toBeDefined();
-    expect(screen.getByText("Connect wallet to trade")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Connect Wallet" })).toBeDefined();
 
-    const tradeButton = screen.getByRole("button", { name: "TRADE" });
+    const tradeButton = screen.getByRole("button", { name: "Connect Wallet" });
     expect(tradeButton.hasAttribute("disabled")).toBe(true);
   });
 
@@ -197,9 +197,10 @@ describe("SupplyTerminal", () => {
     });
     fireEvent.click(tradeButtons[1]);
 
-    expect(screen.getByText("Slot 02")).toBeDefined();
-    expect(screen.getByText("Item Type 84211 x3")).toBeDefined();
-    expect(screen.getAllByText("Item Type 77801 x25").length).toBeGreaterThan(
+    const dialog = screen.getByRole("dialog", { name: "Confirm trade" });
+    expect(within(dialog).getByText("Slot 02")).toBeDefined();
+    expect(within(dialog).getByText("Item Type 84211 x3")).toBeDefined();
+    expect(within(dialog).getAllByText("Item Type 77801 x25").length).toBeGreaterThan(
       0,
     );
 

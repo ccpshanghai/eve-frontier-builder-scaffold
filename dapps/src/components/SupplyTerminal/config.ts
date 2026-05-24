@@ -19,6 +19,11 @@ export const SUPPLY_TERMINAL_ITEM_NAMES: Record<number, string> = {
     SUPPLY_TERMINAL_CONFIG.product.name,
   [SUPPLY_TERMINAL_CONFIG.payment.sandboxItemId]:
     SUPPLY_TERMINAL_CONFIG.payment.name,
+  77811: "Hydrated Sulfide Matrix",
+  84180: "Printed Circuits",
+  84182: "Reinforced Alloys",
+  88561: "Thermal Composites",
+  89089: "Building Foam",
 };
 
 export function getSupplyTerminalItemName(typeId: number): string {

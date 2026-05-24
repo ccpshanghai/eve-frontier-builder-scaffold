@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { SupplyTerminalView } from "../SupplyTerminalView";
@@ -9,6 +9,21 @@ import type {
   SupplyTerminalPreflightView,
   SupplyTerminalSlot,
 } from "../types";
+
+const mocks = vi.hoisted(() => ({
+  useConnection: vi.fn(),
+  useCurrentAccount: vi.fn(),
+}));
+
+vi.mock("@evefrontier/dapp-kit", () => ({
+  useConnection: mocks.useConnection,
+}));
+
+vi.mock("@mysten/dapp-kit-react", () => ({
+  useCurrentAccount: mocks.useCurrentAccount,
+}));
+
+const walletAddress = "0x8f21aabbccddeeffdA90";
 
 const listing: ListingConfig = {
   enabled: true,
@@ -60,7 +75,6 @@ function renderView(
     extensionAuthorized: true,
     isAuthorizing: false,
     storageStatus: "ONLINE",
-    walletAddress: "0x8f21aabbccddeeffdA90",
     slots: createReadySlots(),
     events: createEvents(),
     selectedTradeSlot: null,
@@ -79,6 +93,15 @@ function renderView(
     ...render(<SupplyTerminalView {...props} />),
   };
 }
+
+beforeEach(() => {
+  mocks.useConnection.mockReturnValue({
+    handleConnect: vi.fn(),
+    handleDisconnect: vi.fn(),
+    isConnected: true,
+  });
+  mocks.useCurrentAccount.mockReturnValue({ address: walletAddress });
+});
 
 describe("SupplyTerminalView", () => {
   it("renders the terminal shell topbar, vending grid, and bottom event log", () => {

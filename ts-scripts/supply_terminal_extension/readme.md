@@ -37,6 +37,20 @@ SUPPLY_TERMINAL_LISTINGS='[
 
 Each `productTypeId` must be unique. `productQuantity` can be any positive integer. `paymentVolume` is only used by `pnpm seed-supply-terminal-payment`; it defaults to `10` when omitted.
 
+`pnpm seed-supply-terminal-inventory` seeds local product stock into the StorageUnit machine inventory. By default it adds enough stock for 10 purchases of every configured listing:
+
+```bash
+SUPPLY_TERMINAL_STOCK_PURCHASE_COUNT=10 pnpm seed-supply-terminal-inventory
+```
+
+Optional inventory seed overrides:
+
+```bash
+SUPPLY_TERMINAL_PRODUCT_ITEM_ID=842100000000001
+SUPPLY_TERMINAL_PRODUCT_VOLUME=10
+SUPPLY_TERMINAL_STOCK_PURCHASE_COUNT=10
+```
+
 To run an exchange for a specific product:
 
 ```bash
@@ -52,9 +66,12 @@ pnpm configure-supply-terminal
 # 2. Authorize extension on storage unit (owner)
 pnpm authorise-supply-terminal
 
-# 3. Seed player payment inventory for configured listings (localnet helper)
+# 3. Seed machine product inventory for configured listings (localnet helper)
+pnpm seed-supply-terminal-inventory
+
+# 4. Seed player payment inventory for configured listings (localnet helper)
 pnpm seed-supply-terminal-payment
 
-# 4. Execute test exchange (player)
+# 5. Execute test exchange (player)
 SUPPLY_TERMINAL_EXCHANGE_PRODUCT_TYPE_ID=84210 pnpm supply-terminal-exchange
 ```

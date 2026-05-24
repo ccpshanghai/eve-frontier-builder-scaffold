@@ -95,6 +95,7 @@ export interface SupplyTerminalSlot {
   productTypeId?: number;
   canTrade: boolean;
   disabledReason?: string;
+  machineStockQuantity?: number;
 }
 
 export interface BuildSupplyTerminalSlotsInput {
@@ -102,4 +103,5 @@ export interface BuildSupplyTerminalSlotsInput {
   submitting: boolean;
   soldProductTypeIds?: readonly number[];
   walletConnected?: boolean;
+  machineInventory?: SupplyTerminalInventoryItem[];
 }
