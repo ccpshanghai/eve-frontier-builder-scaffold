@@ -211,6 +211,19 @@ pnpm supply-terminal-exchange
 
 Use `ADMIN_PRIVATE_KEY="$PLAYER_A_PRIVATE_KEY" pnpm authorise-supply-terminal` when the seeded local StorageUnit owner cap belongs to player A rather than the default admin key. Do not echo either key.
 
+## Product Type ID Reference
+
+Find game item type IDs in `move-contracts/supply_terminal_extension/readme.md` (Listing Example table):
+
+| Product | type_id | Payment | type_id |
+|---------|---------|---------|---------|
+| Carbon Weave | `84210` | Feldspar Crystals | `77800` |
+| Printed Circuits | `84180` | | |
+| Reinforced Alloys | `84182` | | |
+| Thermal Composites | `88561` | | |
+| Hydrated Sulfide Matrix | `77811` | | |
+| Building Foam | `89089` | | |
+
 ## Useful Source Files
 
 Check these files when behavior and chain state disagree:
