@@ -194,19 +194,22 @@ This seeds:
 - machine main inventory: Carbon Weave `84210`
 - current `.env` player A Character-owned inventory: Feldspar Crystals `77800`
 
-## Script Order
+## End-to-End Test Workflow
 
-Use the scripts from the repo root:
+Full publish-to-exchange test flow is documented in `reference/localnet-test-workflow.md`. Steps:
 
+1. Publish package → configure listing → authorise extension → seed inventory → seed payment → exchange
+
+Quick one-liner (after publish + env setup):
 ```bash
-pnpm configure-supply-terminal
-ADMIN_PRIVATE_KEY="$PLAYER_A_PRIVATE_KEY" pnpm authorise-supply-terminal
+pnpm configure-supply-terminal && \
+pnpm authorise-supply-terminal && \
+pnpm seed-supply-terminal-inventory && \
+pnpm seed-supply-terminal-payment && \
 pnpm supply-terminal-exchange
 ```
 
 Use `ADMIN_PRIVATE_KEY="$PLAYER_A_PRIVATE_KEY" pnpm authorise-supply-terminal` when the seeded local StorageUnit owner cap belongs to player A rather than the default admin key. Do not echo either key.
-
-Run `pnpm supply-terminal-exchange` only after the local world has inventory for the configured product/payment types. The default seeded world item in `test-resources.json` may not match the Supply Terminal listing types.
 
 ## Useful Source Files
 
