@@ -166,6 +166,33 @@ sui client dynamic-field "$STORAGE_UNIT_ID" --json |
 
 If `characterOwnerCapId` is missing from `inventory_key`, the buyer has no owned inventory in this StorageUnit. If it exists but lacks `payment_type_id`, the payment item has not been seeded. Also verify the machine owner inventory, keyed by the StorageUnit `owner_cap_id`, has the configured `product_type_id`.
 
+## Docker node_modules Platform Mismatch
+
+If a `pnpm ...` command inside the Docker container fails before script logic with an esbuild platform error, treat it as a dependency install location problem, not a chain-state or seed failure.
+
+Typical error:
+
+```text
+You installed esbuild for another platform than the one you're currently using.
+Specifically the "@esbuild/darwin-arm64" package is present but this platform needs the "@esbuild/linux-arm64" package instead.
+```
+
+This means `/workspace/builder-scaffold/node_modules` was installed on the macOS host and is mounted into the Linux container. `tsx` depends on native `esbuild`, so scripts such as these fail before any transaction is built:
+
+```bash
+STORAGE_UNIT_ITEM_ID=888800007 pnpm seed-supply-terminal-inventory
+STORAGE_UNIT_ITEM_ID=888800007 pnpm seed-supply-terminal-payment
+```
+
+Preferred fix: run the `builder-scaffold` TypeScript scripts on the host. They can still talk to Docker localnet through `http://127.0.0.1:9000`, and the host `node_modules` matches the host platform.
+
+```bash
+STORAGE_UNIT_ITEM_ID=888800007 pnpm seed-supply-terminal-inventory
+STORAGE_UNIT_ITEM_ID=888800007 pnpm seed-supply-terminal-payment
+```
+
+If the scripts must run inside Docker, first prepare Linux-compatible dependencies in a container-local copy or isolated install location. Do not casually run `pnpm install` in the mounted `/workspace/builder-scaffold` repo, because that can replace the host's macOS dependency binaries with Linux binaries and break host-side commands.
+
 ## Seed Spec Inventory Locally
 
 Use this only for Docker localnet test data. It does not change source files.
