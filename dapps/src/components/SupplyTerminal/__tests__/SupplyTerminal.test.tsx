@@ -157,6 +157,15 @@ describe("SupplyTerminal", () => {
     expect(tradeButton.hasAttribute("disabled")).toBe(true);
   });
 
+  it("passes a selected storage object id to the storage hook", () => {
+    render(<SupplyTerminal storageObjectId="0xselected" />);
+
+    expect(mocks.useSupplyTerminalStorage).toHaveBeenCalledWith({
+      accountAddress: undefined,
+      storageObjectId: "0xselected",
+    });
+  });
+
   it("submits a chain exchange transaction and refetches after connected trade", async () => {
     mocks.useConnection.mockReturnValue({ isConnected: true });
     mocks.useCurrentAccount.mockReturnValue({ address: sender });

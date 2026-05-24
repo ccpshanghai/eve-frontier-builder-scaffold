@@ -36,6 +36,10 @@ export type LoadSupplyTerminalSnapshotParams = {
   accountAddress?: string | null;
 };
 
+export type ReadSupplyTerminalEnvOptions = {
+  storageObjectId?: string | null;
+};
+
 export type BuildSupplyTerminalExchangeTransactionParams = {
   env: SupplyTerminalChainEnv;
   snapshot: SupplyTerminalChainSnapshot;
@@ -56,8 +60,10 @@ export type ProbeStorageUnitOwnerCapBorrowParams =
 
 export function readSupplyTerminalEnv(
   env: Partial<ImportMetaEnv> = import.meta.env,
+  options: ReadSupplyTerminalEnvOptions = {},
 ): SupplyTerminalChainEnv {
-  const storageObjectId = readRequiredEnv(env, "VITE_OBJECT_ID");
+  const storageObjectId =
+    options.storageObjectId?.trim() || readRequiredEnv(env, "VITE_OBJECT_ID");
   const worldPackageId = readRequiredEnv(env, "VITE_EVE_WORLD_PACKAGE_ID");
   const supplyTerminalPackageId = readRequiredEnv(
     env,

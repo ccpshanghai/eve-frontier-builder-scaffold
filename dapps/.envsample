@@ -2,8 +2,10 @@
 # Non-local values use the normal EveFrontierProvider path.
 VITE_APP_ENV=
 
-# Change the following to the preferred smart assembly
-# If defined, this will take priority over values passed via URL query param
+# Optional local/dev fallback StorageUnit object id.
+# Deployed apps should prefer URL selectors:
+#   ?objectId=0x...
+#   ?tenant=stillness&itemId=...
 VITE_OBJECT_ID=
 
 # World package id

@@ -15,10 +15,21 @@ import type { ExchangeEvent, SupplyTerminalSlot } from "./types";
 import { useSupplyTerminalStorage } from "./storage";
 import "./SupplyTerminal.css";
 
-export function SupplyTerminal() {
+export interface SupplyTerminalProps {
+  storageObjectId?: string | null;
+  storageObjectIdLoading?: boolean;
+  storageObjectIdError?: string | null;
+}
+
+export function SupplyTerminal({
+  storageObjectId = null,
+  storageObjectIdLoading = false,
+  storageObjectIdError = null,
+}: SupplyTerminalProps = {}) {
   const { isConnected } = useConnection();
   const account = useCurrentAccount();
   const dAppKit = useDAppKit();
+  const storageSelectorReady = !storageObjectIdLoading && !storageObjectIdError;
   const {
     snapshot,
     storage,
@@ -29,6 +40,8 @@ export function SupplyTerminal() {
     refetch,
   } = useSupplyTerminalStorage({
     accountAddress: account?.address,
+    storageObjectId,
+    ...(storageSelectorReady ? {} : { enabled: false }),
   });
 
   const [events, setEvents] = useState<ExchangeEvent[]>([
@@ -434,8 +447,14 @@ export function SupplyTerminal() {
     });
   }, [addEvent]);
 
-  if (storageLoading) {
+  if (storageObjectIdLoading || storageLoading) {
     return <div className="st-screen-message">Loading storage...</div>;
+  }
+
+  if (storageObjectIdError) {
+    return (
+      <div className="st-screen-message">Error: {storageObjectIdError}</div>
+    );
   }
 
   if (storageError) {

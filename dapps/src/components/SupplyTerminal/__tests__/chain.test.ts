@@ -109,6 +109,25 @@ describe("Supply Terminal chain adapter", () => {
     });
   });
 
+  it("uses a selected storage object id without requiring VITE_OBJECT_ID", () => {
+    expect(
+      readSupplyTerminalEnv(
+        {
+          VITE_EVE_WORLD_PACKAGE_ID: "0xworld",
+          VITE_SUPPLY_TERMINAL_PACKAGE_ID: "0xbuilder",
+          VITE_SUPPLY_TERMINAL_CONFIG_ID: "0xconfig",
+        },
+        { storageObjectId: " 0xselected " },
+      ),
+    ).toEqual({
+      storageObjectId: "0xselected",
+      worldPackageId: "0xworld",
+      supplyTerminalPackageId: "0xbuilder",
+      supplyTerminalConfigId: "0xconfig",
+      rpcUrl: "http://127.0.0.1:9000",
+    });
+  });
+
   it("selects inventory by owner cap key case-insensitively", () => {
     expect(
       selectInventoryForKey(
