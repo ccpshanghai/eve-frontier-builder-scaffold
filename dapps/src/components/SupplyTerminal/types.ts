@@ -30,13 +30,14 @@ export interface SupplyTerminalCharacterSnapshot {
 
 export interface SupplyTerminalChainSnapshot {
   storage: SupplyTerminalStorageSnapshot;
-  listing: ListingConfig | null;
+  listings: ListingConfig[];
   machineInventory: SupplyTerminalInventoryItem[];
   buyerInventory: SupplyTerminalInventoryItem[];
   character: SupplyTerminalCharacterSnapshot | null;
 }
 
 export interface SupplyTerminalPreflightView {
+  listing: ListingConfig;
   paymentAvailable: boolean;
   machineStockAvailable: boolean;
   listingEnabled: boolean;
@@ -91,17 +92,14 @@ export interface SupplyTerminalSlot {
   status: SupplyTerminalSlotStatus;
   reward?: SupplyTerminalSlotItem;
   price?: SupplyTerminalSlotItem;
+  productTypeId?: number;
   canTrade: boolean;
   disabledReason?: string;
 }
 
 export interface BuildSupplyTerminalSlotsInput {
-  paymentAvailable: boolean;
-  machineStockAvailable: boolean;
-  listingEnabled: boolean;
-  extensionAuthorized: boolean;
+  preflightViews: SupplyTerminalPreflightView[];
   submitting: boolean;
-  sold: boolean;
+  soldProductTypeIds?: readonly number[];
   walletConnected?: boolean;
-  disabledReason?: string;
 }

@@ -1,7 +1,7 @@
 import { SuiJsonRpcClient, type DynamicFieldName } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import { SUPPLY_TERMINAL_CONFIG } from "./config";
+import { getSupplyTerminalItemName } from "./config";
 import type {
   ListingConfig,
   SupplyTerminalChainEnv,
@@ -38,6 +38,7 @@ export type BuildSupplyTerminalExchangeTransactionParams = {
   env: SupplyTerminalChainEnv;
   snapshot: SupplyTerminalChainSnapshot;
   sender: string;
+  productTypeId: number;
 };
 
 export function readSupplyTerminalEnv(
@@ -108,52 +109,55 @@ export function selectInventoryForKey(
   );
 }
 
-export function validateSupplyTerminalSnapshot(
+export function validateSupplyTerminalListings(
   snapshot: SupplyTerminalChainSnapshot,
-): SupplyTerminalPreflightView {
-  const listing = snapshot.listing;
+): SupplyTerminalPreflightView[] {
   const extensionAuthorized = snapshot.storage.extension.includes(
     SUPPLY_TERMINAL_AUTH_SUFFIX,
   );
 
-  if (!listing?.enabled) {
-    return {
-      paymentAvailable: false,
-      machineStockAvailable: false,
-      listingEnabled: false,
-      extensionAuthorized,
-      disabledReason: "Listing disabled",
-    };
-  }
+  return snapshot.listings.map((listing) => {
+    if (!listing.enabled) {
+      return {
+        listing,
+        paymentAvailable: false,
+        machineStockAvailable: false,
+        listingEnabled: false,
+        extensionAuthorized,
+        disabledReason: "Listing disabled",
+      };
+    }
 
-  const machineStockAvailable = hasItem(
-    snapshot.machineInventory,
-    listing.productTypeId,
-    listing.productQuantity,
-  );
-  const paymentAvailable =
-    Boolean(snapshot.character) &&
-    hasItem(
-      snapshot.buyerInventory,
-      listing.paymentTypeId,
-      listing.paymentQuantity,
+    const machineStockAvailable = hasItem(
+      snapshot.machineInventory,
+      listing.productTypeId,
+      listing.productQuantity,
     );
+    const paymentAvailable =
+      Boolean(snapshot.character) &&
+      hasItem(
+        snapshot.buyerInventory,
+        listing.paymentTypeId,
+        listing.paymentQuantity,
+      );
 
-  return {
-    paymentAvailable,
-    machineStockAvailable,
-    listingEnabled: true,
-    extensionAuthorized,
-    disabledReason: !extensionAuthorized
-      ? "Extension authorization required"
-      : !machineStockAvailable
-        ? `${SUPPLY_TERMINAL_CONFIG.product.name} unavailable`
-        : !snapshot.character
-          ? "Connected wallet does not own a Character OwnerCap"
-          : !paymentAvailable
-            ? `Requires ${SUPPLY_TERMINAL_CONFIG.payment.name} x${listing.paymentQuantity}`
-            : undefined,
-  };
+    return {
+      listing,
+      paymentAvailable,
+      machineStockAvailable,
+      listingEnabled: true,
+      extensionAuthorized,
+      disabledReason: !extensionAuthorized
+        ? "Extension authorization required"
+        : !machineStockAvailable
+          ? `${getSupplyTerminalItemName(listing.productTypeId)} unavailable`
+          : !snapshot.character
+            ? "Connected wallet does not own a Character OwnerCap"
+            : !paymentAvailable
+              ? `Requires ${getSupplyTerminalItemName(listing.paymentTypeId)} x${listing.paymentQuantity}`
+              : undefined,
+    };
+  });
 }
 
 export async function loadSupplyTerminalSnapshot({
@@ -161,9 +165,9 @@ export async function loadSupplyTerminalSnapshot({
   client = createSupplyTerminalRpcClient(env),
   accountAddress,
 }: LoadSupplyTerminalSnapshotParams = {}): Promise<SupplyTerminalChainSnapshot> {
-  const [storage, listing, inventories] = await Promise.all([
+  const [storage, listings, inventories] = await Promise.all([
     loadStorageUnit(client, env.storageObjectId),
-    loadListingConfig(client, env),
+    loadListingConfigs(client, env),
     loadInventories(client, env.storageObjectId),
   ]);
   const character = await loadWalletCharacter(
@@ -175,7 +179,7 @@ export async function loadSupplyTerminalSnapshot({
 
   return {
     storage,
-    listing,
+    listings,
     machineInventory: selectInventoryForKey(inventories, storage.ownerCapId),
     buyerInventory: selectInventoryForKey(inventories, character?.ownerCapId),
     character,
@@ -186,10 +190,20 @@ export function buildSupplyTerminalExchangeTransaction({
   env,
   snapshot,
   sender,
+  productTypeId,
 }: BuildSupplyTerminalExchangeTransactionParams): Transaction {
   const character = snapshot.character;
   if (!character) {
     throw new Error("Connected wallet does not own a Character OwnerCap");
+  }
+  if (
+    !snapshot.listings.some(
+      (listing) => listing.productTypeId === productTypeId,
+    )
+  ) {
+    throw new Error(
+      `Supply Terminal listing ${productTypeId} is not configured`,
+    );
   }
 
   const tx = new Transaction();
@@ -210,6 +224,7 @@ export function buildSupplyTerminalExchangeTransaction({
       tx.object(snapshot.storage.id),
       tx.object(character.id),
       ownerCap,
+      tx.pure.u64(productTypeId),
     ],
   });
 
@@ -222,35 +237,41 @@ export function buildSupplyTerminalExchangeTransaction({
   return tx;
 }
 
-async function loadListingConfig(
+async function loadListingConfigs(
   client: SuiJsonRpcClient,
   env: SupplyTerminalChainEnv,
-): Promise<ListingConfig | null> {
+): Promise<ListingConfig[]> {
   const fields = await getAllDynamicFields(client, env.supplyTerminalConfigId);
-  const listingField = fields.find((field) =>
+  const listingFields = fields.filter((field) =>
     String(field.objectType).endsWith(
       `${env.supplyTerminalPackageId}${LISTING_CONFIG_SUFFIX}`,
     ),
   );
 
-  if (!listingField) return null;
+  const listings = await Promise.all(
+    listingFields.map(async (listingField) => {
+      const fieldObject = await client.getDynamicFieldObject({
+        parentId: env.supplyTerminalConfigId,
+        name: listingField.name,
+      });
+      const root = getMoveObjectFields(fieldObject);
+      const listing = getTypedFields(root?.value);
 
-  const fieldObject = await client.getDynamicFieldObject({
-    parentId: env.supplyTerminalConfigId,
-    name: listingField.name,
-  });
-  const root = getMoveObjectFields(fieldObject);
-  const listing = getTypedFields(root?.value);
+      if (!listing) return null;
 
-  if (!listing) return null;
+      return {
+        enabled: Boolean(listing.enabled),
+        productTypeId: Number(listing.product_type_id),
+        productQuantity: Number(listing.product_quantity),
+        paymentTypeId: Number(listing.payment_type_id),
+        paymentQuantity: Number(listing.payment_quantity),
+      };
+    }),
+  );
 
-  return {
-    enabled: Boolean(listing.enabled),
-    productTypeId: Number(listing.product_type_id),
-    productQuantity: Number(listing.product_quantity),
-    paymentTypeId: Number(listing.payment_type_id),
-    paymentQuantity: Number(listing.payment_quantity),
-  };
+  return listings
+    .filter((listing): listing is ListingConfig => Boolean(listing))
+    .sort((left, right) => left.productTypeId - right.productTypeId);
 }
 
 async function loadStorageUnit(

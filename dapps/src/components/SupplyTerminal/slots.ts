@@ -1,10 +1,11 @@
 import {
-  ACTIVE_SUPPLY_TERMINAL_SLOT_INDEX,
-  SUPPLY_TERMINAL_CONFIG,
+  getSupplyTerminalItemName,
   SUPPLY_TERMINAL_SLOT_COUNT,
 } from "./config";
 import type {
   BuildSupplyTerminalSlotsInput,
+  ListingConfig,
+  SupplyTerminalPreflightView,
   SupplyTerminalSlot,
   SupplyTerminalSlotItem,
   SupplyTerminalSlotStatus,
@@ -26,35 +27,43 @@ function createEmptySlot(index: number): SupplyTerminalSlot {
   };
 }
 
-function createSlotItem(item: SupplyTerminalSlotItem): SupplyTerminalSlotItem {
+function createSlotItem(
+  typeId: number,
+  quantity: number,
+): SupplyTerminalSlotItem {
   return {
-    name: item.name,
-    sandboxItemId: item.sandboxItemId,
-    quantity: item.quantity,
+    name: getSupplyTerminalItemName(typeId),
+    sandboxItemId: typeId,
+    quantity,
   };
 }
 
 function getBlockedSlotState(
   input: BuildSupplyTerminalSlotsInput,
+  preflight: SupplyTerminalPreflightView,
 ): { status: SupplyTerminalSlotStatus; disabledReason?: string } | undefined {
-  if (!input.listingEnabled) {
+  const { listing } = preflight;
+
+  if (!preflight.listingEnabled) {
     return {
       status: "listing_disabled",
       disabledReason: "Listing disabled",
     };
   }
 
-  if (!input.extensionAuthorized) {
+  if (!preflight.extensionAuthorized) {
     return {
       status: "extension_not_authorized",
       disabledReason: "Extension authorization required",
     };
   }
 
-  if (!input.machineStockAvailable) {
+  if (!preflight.machineStockAvailable) {
     return {
       status: "out_of_stock",
-      disabledReason: `${SUPPLY_TERMINAL_CONFIG.product.name} unavailable`,
+      disabledReason:
+        preflight.disabledReason ??
+        `${getSupplyTerminalItemName(listing.productTypeId)} unavailable`,
     };
   }
 
@@ -65,12 +74,12 @@ function getBlockedSlotState(
     };
   }
 
-  if (!input.paymentAvailable) {
+  if (!preflight.paymentAvailable) {
     return {
       status: "insufficient_payment",
       disabledReason:
-        input.disabledReason ??
-        `Requires ${SUPPLY_TERMINAL_CONFIG.payment.name} x${SUPPLY_TERMINAL_CONFIG.payment.quantity}`,
+        preflight.disabledReason ??
+        `Requires ${getSupplyTerminalItemName(listing.paymentTypeId)} x${listing.paymentQuantity}`,
     };
   }
 
@@ -86,27 +95,43 @@ function getBlockedSlotState(
 
 function createActiveSlot(
   input: BuildSupplyTerminalSlotsInput,
+  preflight: SupplyTerminalPreflightView,
+  index: number,
 ): SupplyTerminalSlot {
-  const baseSlot = createEmptySlot(ACTIVE_SUPPLY_TERMINAL_SLOT_INDEX);
+  const { listing } = preflight;
+  const baseSlot = createEmptySlot(index);
 
-  if (input.sold) {
+  if (input.soldProductTypeIds?.includes(listing.productTypeId)) {
     return {
       ...baseSlot,
       status: "sold",
     };
   }
 
-  const blockedState = getBlockedSlotState(input);
+  const blockedState = getBlockedSlotState(input, preflight);
   const status = blockedState?.status ?? "ready";
 
   return {
     ...baseSlot,
     status,
-    reward: createSlotItem(SUPPLY_TERMINAL_CONFIG.product),
-    price: createSlotItem(SUPPLY_TERMINAL_CONFIG.payment),
+    reward: createListingProductItem(listing),
+    price: createListingPaymentItem(listing),
+    productTypeId: listing.productTypeId,
     canTrade: status === "ready",
     disabledReason: blockedState?.disabledReason,
   };
+}
+
+function createListingProductItem(
+  listing: ListingConfig,
+): SupplyTerminalSlotItem {
+  return createSlotItem(listing.productTypeId, listing.productQuantity);
+}
+
+function createListingPaymentItem(
+  listing: ListingConfig,
+): SupplyTerminalSlotItem {
+  return createSlotItem(listing.paymentTypeId, listing.paymentQuantity);
 }
 
 export function buildSupplyTerminalSlots(
@@ -114,9 +139,10 @@ export function buildSupplyTerminalSlots(
 ): SupplyTerminalSlot[] {
   return Array.from({ length: SUPPLY_TERMINAL_SLOT_COUNT }, (_, slotIndex) => {
     const index = slotIndex + 1;
+    const preflight = input.preflightViews[slotIndex];
 
-    if (index === ACTIVE_SUPPLY_TERMINAL_SLOT_INDEX) {
-      return createActiveSlot(input);
+    if (preflight) {
+      return createActiveSlot(input, preflight, index);
     }
 
     return createEmptySlot(index);

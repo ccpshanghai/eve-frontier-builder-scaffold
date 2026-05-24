@@ -6,7 +6,7 @@ import {
   parseInventoryItems,
   readSupplyTerminalEnv,
   selectInventoryForKey,
-  validateSupplyTerminalSnapshot,
+  validateSupplyTerminalListings,
 } from "../chain";
 import type { SupplyTerminalChainSnapshot } from "../types";
 
@@ -27,7 +27,8 @@ const supplyTerminalPackageId =
 const supplyTerminalConfigId =
   "0x0000000000000000000000000000000000000000000000000000000000000008";
 
-const listingFieldName = { type: "u64", value: "1" };
+const listingFieldName = { type: "u64", value: "84210" };
+const secondListingFieldName = { type: "u64", value: "84211" };
 const machineInventoryFieldName = { type: "address", value: machineOwnerCapId };
 const characterInventoryFieldName = {
   type: "address",
@@ -41,13 +42,15 @@ const baseSnapshot: SupplyTerminalChainSnapshot = {
     status: "ONLINE",
     extension: "0xbuilder::config::SupplyTerminalAuth",
   },
-  listing: {
-    enabled: true,
-    productTypeId: 84210,
-    productQuantity: 1,
-    paymentTypeId: 77800,
-    paymentQuantity: 10,
-  },
+  listings: [
+    {
+      enabled: true,
+      productTypeId: 84210,
+      productQuantity: 1,
+      paymentTypeId: 77800,
+      paymentQuantity: 10,
+    },
+  ],
   machineInventory: [{ typeId: 84210, quantity: 1 }],
   buyerInventory: [{ typeId: 77800, quantity: 10 }],
   character: {
@@ -147,37 +150,63 @@ describe("Supply Terminal chain adapter", () => {
   });
 
   it("reports ready when listing, stock, payment, and wallet character are present", () => {
-    expect(validateSupplyTerminalSnapshot(baseSnapshot)).toEqual({
-      paymentAvailable: true,
-      machineStockAvailable: true,
-      listingEnabled: true,
-      extensionAuthorized: true,
-      disabledReason: undefined,
-    });
+    expect(validateSupplyTerminalListings(baseSnapshot)).toEqual([
+      {
+        listing: baseSnapshot.listings[0],
+        paymentAvailable: true,
+        machineStockAvailable: true,
+        listingEnabled: true,
+        extensionAuthorized: true,
+        disabledReason: undefined,
+      },
+    ]);
   });
 
-  it("reports out of stock when machine inventory is empty", () => {
+  it("reports per-listing stock and payment state", () => {
     expect(
-      validateSupplyTerminalSnapshot({
+      validateSupplyTerminalListings({
         ...baseSnapshot,
-        machineInventory: [],
+        listings: [
+          ...baseSnapshot.listings,
+          {
+            enabled: true,
+            productTypeId: 84211,
+            productQuantity: 3,
+            paymentTypeId: 77801,
+            paymentQuantity: 25,
+          },
+        ],
+        machineInventory: [{ typeId: 84210, quantity: 1 }],
+        buyerInventory: [{ typeId: 77800, quantity: 10 }],
       }),
-    ).toMatchObject({
-      machineStockAvailable: false,
-      disabledReason: "Carbon Weave unavailable",
-    });
+    ).toMatchObject([
+      {
+        listing: { productTypeId: 84210 },
+        paymentAvailable: true,
+        machineStockAvailable: true,
+        disabledReason: undefined,
+      },
+      {
+        listing: { productTypeId: 84211 },
+        paymentAvailable: false,
+        machineStockAvailable: false,
+        disabledReason: "Item Type 84211 unavailable",
+      },
+    ]);
   });
 
   it("reports insufficient payment when buyer inventory lacks payment item", () => {
     expect(
-      validateSupplyTerminalSnapshot({
+      validateSupplyTerminalListings({
         ...baseSnapshot,
         buyerInventory: [],
       }),
-    ).toMatchObject({
-      paymentAvailable: false,
-      disabledReason: "Requires Feldspar Crystals x10",
-    });
+    ).toMatchObject([
+      {
+        paymentAvailable: false,
+        disabledReason: "Requires Feldspar Crystals x10",
+      },
+    ]);
   });
 
   it("discovers a wallet character from a StorageUnit inventory OwnerCap", async () => {
@@ -238,6 +267,10 @@ describe("Supply Terminal chain adapter", () => {
                 name: listingFieldName,
                 objectType: `${supplyTerminalPackageId}::supply_terminal::ListingConfig`,
               },
+              {
+                name: secondListingFieldName,
+                objectType: `${supplyTerminalPackageId}::supply_terminal::ListingConfig`,
+              },
             ],
             hasNextPage: false,
           };
@@ -280,6 +313,29 @@ describe("Supply Terminal chain adapter", () => {
                       product_quantity: "1",
                       payment_type_id: "77800",
                       payment_quantity: "10",
+                    },
+                  },
+                },
+              },
+            },
+          };
+        }
+
+        if (
+          parentId === supplyTerminalConfigId &&
+          name === secondListingFieldName
+        ) {
+          return {
+            data: {
+              content: {
+                fields: {
+                  value: {
+                    fields: {
+                      enabled: true,
+                      product_type_id: "84211",
+                      product_quantity: "3",
+                      payment_type_id: "77801",
+                      payment_quantity: "25",
                     },
                   },
                 },
@@ -368,6 +424,9 @@ describe("Supply Terminal chain adapter", () => {
       id: characterId,
       ownerCapId: characterOwnerCapId,
     });
+    expect(snapshot.listings.map((listing) => listing.productTypeId)).toEqual([
+      84210, 84211,
+    ]);
     expect(snapshot.buyerInventory).toEqual([{ typeId: 77800, quantity: 10 }]);
   });
 
@@ -376,6 +435,7 @@ describe("Supply Terminal chain adapter", () => {
       env: baseEnv,
       snapshot: baseSnapshot,
       sender,
+      productTypeId: 84210,
     });
 
     const json = JSON.parse(await transaction.toJSON()) as {
@@ -384,6 +444,7 @@ describe("Supply Terminal chain adapter", () => {
           package: string;
           module: string;
           function: string;
+          arguments: unknown[];
         };
       }>;
     };
@@ -405,5 +466,6 @@ describe("Supply Terminal chain adapter", () => {
         function: "return_owner_cap",
       },
     ]);
+    expect(json.commands[1]?.MoveCall.arguments).toHaveLength(5);
   });
 });

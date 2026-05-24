@@ -3,7 +3,7 @@ import { useConnection } from "@evefrontier/dapp-kit";
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react";
 import {
   buildSupplyTerminalExchangeTransaction,
-  validateSupplyTerminalSnapshot,
+  validateSupplyTerminalListings,
 } from "./chain";
 import { buildSupplyTerminalSlots } from "./slots";
 import { SupplyTerminalView } from "./SupplyTerminalView";
@@ -42,19 +42,15 @@ export function SupplyTerminal() {
   const tradeInFlightRef = useRef(false);
 
   const walletConnected = isConnected && Boolean(account);
-  const preflight = useMemo(
-    () =>
-      snapshot
-        ? validateSupplyTerminalSnapshot(snapshot)
-        : {
-            paymentAvailable: false,
-            machineStockAvailable: false,
-            listingEnabled: false,
-            extensionAuthorized: false,
-            disabledReason: "Storage loading",
-          },
+  const preflightViews = useMemo(
+    () => (snapshot ? validateSupplyTerminalListings(snapshot) : []),
     [snapshot],
   );
+  const extensionAuthorized =
+    preflightViews[0]?.extensionAuthorized ??
+    Boolean(
+      snapshot?.storage.extension.includes("::config::SupplyTerminalAuth"),
+    );
   const owner = false;
 
   const addEvent = useCallback((event: Omit<ExchangeEvent, "timestamp">) => {
@@ -67,16 +63,11 @@ export function SupplyTerminal() {
   const slots = useMemo(
     () =>
       buildSupplyTerminalSlots({
-        paymentAvailable: preflight.paymentAvailable,
-        machineStockAvailable: preflight.machineStockAvailable,
-        listingEnabled: preflight.listingEnabled,
-        extensionAuthorized: preflight.extensionAuthorized,
+        preflightViews,
         submitting: tradeSubmitting || storageRefreshing,
-        sold: false,
         walletConnected,
-        disabledReason: preflight.disabledReason,
       }),
-    [preflight, storageRefreshing, tradeSubmitting, walletConnected],
+    [preflightViews, storageRefreshing, tradeSubmitting, walletConnected],
   );
   const currentSelectedTradeSlot = useMemo(
     () =>
@@ -129,6 +120,18 @@ export function SupplyTerminal() {
         return;
       }
 
+      if (!currentSlot.productTypeId) {
+        const message =
+          "Selected slot is not linked to a Supply Terminal listing";
+
+        setTradeError(message);
+        addEvent({
+          type: "local",
+          message: `Exchange blocked: ${message}`,
+        });
+        return;
+      }
+
       if (!account || !env || !snapshot || !walletConnected) {
         const message = "Connect wallet to trade";
 
@@ -153,6 +156,7 @@ export function SupplyTerminal() {
           env,
           snapshot,
           sender: account.address,
+          productTypeId: currentSlot.productTypeId,
         });
 
         const result = await dAppKit.signAndExecuteTransaction({
@@ -251,7 +255,7 @@ export function SupplyTerminal() {
   return (
     <SupplyTerminalView
       isOwner={owner}
-      extensionAuthorized={preflight.extensionAuthorized}
+      extensionAuthorized={extensionAuthorized}
       isAuthorizing={isAuthorizing}
       storageStatus={storage.status}
       walletAddress={account?.address ?? null}
