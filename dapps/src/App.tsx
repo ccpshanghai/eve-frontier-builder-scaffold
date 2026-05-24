@@ -12,12 +12,18 @@ function getErrorMessage(error: unknown): string | null {
   return String(error);
 }
 
+function canUseEnvStorageObjectId(): boolean {
+  return import.meta.env.VITE_APP_ENV === "local";
+}
+
 function App() {
   const directStorageObjectId = useMemo(() => readQueryParam("objectId"), []);
   const usesSmartObjectSelector = useMemo(
     () => Boolean(readQueryParam("tenant") || readQueryParam("itemId")),
     [],
   );
+  const usesEnvStorageObjectId =
+    !usesSmartObjectSelector && canUseEnvStorageObjectId();
   const { assembly, loading, error } = useSmartObject();
   const smartObjectId = assembly?.id ?? null;
   const storageObjectId = directStorageObjectId ?? smartObjectId;
@@ -29,7 +35,11 @@ function App() {
     !loading &&
     !smartObjectId
       ? (getErrorMessage(error) ?? "No storage object found for URL selector")
-      : null;
+      : !directStorageObjectId &&
+          !usesSmartObjectSelector &&
+          !usesEnvStorageObjectId
+        ? "Missing storage selector. Open this Supply Terminal with ?objectId=0x... or ?tenant=stillness&itemId=..."
+        : null;
 
   return (
     <SupplyTerminal

@@ -33,7 +33,7 @@ The Supply Terminal chooses its StorageUnit object in this order:
 1. `?objectId=0x...` directly selects the StorageUnit object id.
 2. `?tenant=stillness&itemId=...` lets `useSmartObject()` resolve the assembly
    and uses `assembly.id`.
-3. `VITE_OBJECT_ID` is only a local/dev fallback.
+3. `VITE_OBJECT_ID` is only a local fallback when `VITE_APP_ENV=local`.
 
 To install dependencies you can run:
 

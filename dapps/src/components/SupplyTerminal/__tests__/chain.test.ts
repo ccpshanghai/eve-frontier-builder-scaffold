@@ -94,6 +94,7 @@ describe("Supply Terminal chain adapter", () => {
   it("reads public Supply Terminal env values", () => {
     expect(
       readSupplyTerminalEnv({
+        VITE_APP_ENV: "local",
         VITE_OBJECT_ID: " 0xstorage ",
         VITE_EVE_WORLD_PACKAGE_ID: "0xworld",
         VITE_SUPPLY_TERMINAL_PACKAGE_ID: "0xbuilder",
@@ -107,6 +108,20 @@ describe("Supply Terminal chain adapter", () => {
       supplyTerminalConfigId: "0xconfig",
       rpcUrl: "http://127.0.0.1:9000",
     });
+  });
+
+  it("does not use VITE_OBJECT_ID outside local development", () => {
+    expect(() =>
+      readSupplyTerminalEnv({
+        VITE_APP_ENV: "testnet",
+        VITE_OBJECT_ID: "0xlocal-storage",
+        VITE_EVE_WORLD_PACKAGE_ID: "0xworld",
+        VITE_SUPPLY_TERMINAL_PACKAGE_ID: "0xbuilder",
+        VITE_SUPPLY_TERMINAL_CONFIG_ID: "0xconfig",
+      }),
+    ).toThrow(
+      "StorageUnit object selector is not configured. Use ?objectId=0x... or ?tenant=stillness&itemId=...",
+    );
   });
 
   it("uses a selected storage object id without requiring VITE_OBJECT_ID", () => {

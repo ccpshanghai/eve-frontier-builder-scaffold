@@ -25,6 +25,7 @@ function renderedSupplyTerminalProps(): Record<string, unknown> {
 describe("App", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
+    vi.stubEnv("VITE_APP_ENV", "testnet");
     mocks.useSmartObject.mockReturnValue({
       assembly: null,
       loading: false,
@@ -35,6 +36,7 @@ describe("App", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("passes query objectId directly to the Supply Terminal", () => {
@@ -75,11 +77,24 @@ describe("App", () => {
     });
   });
 
-  it("keeps the env fallback path when no query object can be resolved", () => {
+  it("blocks the env fallback path outside local development", () => {
     render(<App />);
 
     expect(renderedSupplyTerminalProps()).toMatchObject({
       storageObjectId: null,
+      storageObjectIdError:
+        "Missing storage selector. Open this Supply Terminal with ?objectId=0x... or ?tenant=stillness&itemId=...",
+    });
+  });
+
+  it("keeps the env fallback path for local development", () => {
+    vi.stubEnv("VITE_APP_ENV", "local");
+
+    render(<App />);
+
+    expect(renderedSupplyTerminalProps()).toMatchObject({
+      storageObjectId: null,
+      storageObjectIdError: null,
     });
   });
 });

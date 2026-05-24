@@ -2,7 +2,8 @@
 # Non-local values use the normal EveFrontierProvider path.
 VITE_APP_ENV=
 
-# Optional local/dev fallback StorageUnit object id.
+# Optional local-only fallback StorageUnit object id.
+# This is ignored unless VITE_APP_ENV=local.
 # Deployed apps should prefer URL selectors:
 #   ?objectId=0x...
 #   ?tenant=stillness&itemId=...

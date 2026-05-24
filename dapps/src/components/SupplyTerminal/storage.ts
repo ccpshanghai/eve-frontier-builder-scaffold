@@ -68,7 +68,7 @@ export function useSupplyTerminalStorage({
       }));
 
       try {
-        const env = readSupplyTerminalEnv(import.meta.env, {
+        const env = readSupplyTerminalEnv(undefined, {
           storageObjectId,
         });
         const client = createSupplyTerminalRpcClient(env);

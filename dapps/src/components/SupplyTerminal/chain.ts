@@ -59,11 +59,10 @@ export type ProbeStorageUnitOwnerCapBorrowParams =
   };
 
 export function readSupplyTerminalEnv(
-  env: Partial<ImportMetaEnv> = import.meta.env,
+  env: Partial<ImportMetaEnv> = getBrowserSupplyTerminalEnv(),
   options: ReadSupplyTerminalEnvOptions = {},
 ): SupplyTerminalChainEnv {
-  const storageObjectId =
-    options.storageObjectId?.trim() || readRequiredEnv(env, "VITE_OBJECT_ID");
+  const storageObjectId = readStorageObjectId(env, options);
   const worldPackageId = readRequiredEnv(env, "VITE_EVE_WORLD_PACKAGE_ID");
   const supplyTerminalPackageId = readRequiredEnv(
     env,
@@ -81,6 +80,40 @@ export function readSupplyTerminalEnv(
     supplyTerminalConfigId,
     rpcUrl: env.VITE_SUI_RPC_URL?.trim() || DEFAULT_RPC_URL,
   };
+}
+
+function getBrowserSupplyTerminalEnv(): Partial<ImportMetaEnv> {
+  const appEnv = import.meta.env.VITE_APP_ENV;
+
+  return {
+    VITE_APP_ENV: appEnv,
+    VITE_OBJECT_ID:
+      appEnv === "local" ? import.meta.env.VITE_OBJECT_ID : undefined,
+    VITE_EVE_WORLD_PACKAGE_ID: import.meta.env.VITE_EVE_WORLD_PACKAGE_ID,
+    VITE_SUPPLY_TERMINAL_PACKAGE_ID: import.meta.env
+      .VITE_SUPPLY_TERMINAL_PACKAGE_ID,
+    VITE_SUPPLY_TERMINAL_CONFIG_ID: import.meta.env
+      .VITE_SUPPLY_TERMINAL_CONFIG_ID,
+    VITE_SUI_RPC_URL: import.meta.env.VITE_SUI_RPC_URL,
+  };
+}
+
+function readStorageObjectId(
+  env: Partial<ImportMetaEnv>,
+  options: ReadSupplyTerminalEnvOptions,
+): string {
+  const selectedStorageObjectId = options.storageObjectId?.trim();
+  if (selectedStorageObjectId) {
+    return selectedStorageObjectId;
+  }
+
+  if (env.VITE_APP_ENV === "local") {
+    return readRequiredEnv(env, "VITE_OBJECT_ID");
+  }
+
+  throw new Error(
+    "StorageUnit object selector is not configured. Use ?objectId=0x... or ?tenant=stillness&itemId=...",
+  );
 }
 
 export function createSupplyTerminalRpcClient(
