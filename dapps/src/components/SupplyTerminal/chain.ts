@@ -18,7 +18,9 @@ const SUPPLY_TERMINAL_AUTH_SUFFIX = "::config::SupplyTerminalAuth";
 const LISTING_CONFIG_SUFFIX = "::supply_terminal::ListingConfig";
 const INVENTORY_SUFFIX = "::inventory::Inventory";
 const CHARACTER_TYPE = "character::Character";
+const STORAGE_UNIT_TYPE = "storage_unit::StorageUnit";
 const CHARACTER_MODULE_TARGET = "character";
+const STORAGE_UNIT_MODULE_TARGET = "storage_unit";
 const SUPPLY_TERMINAL_MODULE_TARGET = "supply_terminal";
 
 type MoveFields = Record<string, unknown>;
@@ -34,6 +36,10 @@ export type LoadSupplyTerminalSnapshotParams = {
   accountAddress?: string | null;
 };
 
+export type ReadSupplyTerminalEnvOptions = {
+  storageObjectId?: string | null;
+};
+
 export type BuildSupplyTerminalExchangeTransactionParams = {
   env: SupplyTerminalChainEnv;
   snapshot: SupplyTerminalChainSnapshot;
@@ -41,10 +47,22 @@ export type BuildSupplyTerminalExchangeTransactionParams = {
   productTypeId: number;
 };
 
+export type BuildStorageUnitOwnerCapTransactionParams = {
+  env: SupplyTerminalChainEnv;
+  snapshot: SupplyTerminalChainSnapshot;
+  sender: string;
+};
+
+export type ProbeStorageUnitOwnerCapBorrowParams =
+  BuildStorageUnitOwnerCapTransactionParams & {
+    client?: SuiJsonRpcClient;
+  };
+
 export function readSupplyTerminalEnv(
-  env: Partial<ImportMetaEnv> = import.meta.env,
+  env: Partial<ImportMetaEnv> = getBrowserSupplyTerminalEnv(),
+  options: ReadSupplyTerminalEnvOptions = {},
 ): SupplyTerminalChainEnv {
-  const storageObjectId = readRequiredEnv(env, "VITE_OBJECT_ID");
+  const storageObjectId = readStorageObjectId(env, options);
   const worldPackageId = readRequiredEnv(env, "VITE_EVE_WORLD_PACKAGE_ID");
   const supplyTerminalPackageId = readRequiredEnv(
     env,
@@ -64,6 +82,40 @@ export function readSupplyTerminalEnv(
   };
 }
 
+function getBrowserSupplyTerminalEnv(): Partial<ImportMetaEnv> {
+  const appEnv = import.meta.env.VITE_APP_ENV;
+
+  return {
+    VITE_APP_ENV: appEnv,
+    VITE_OBJECT_ID:
+      appEnv === "local" ? import.meta.env.VITE_OBJECT_ID : undefined,
+    VITE_EVE_WORLD_PACKAGE_ID: import.meta.env.VITE_EVE_WORLD_PACKAGE_ID,
+    VITE_SUPPLY_TERMINAL_PACKAGE_ID: import.meta.env
+      .VITE_SUPPLY_TERMINAL_PACKAGE_ID,
+    VITE_SUPPLY_TERMINAL_CONFIG_ID: import.meta.env
+      .VITE_SUPPLY_TERMINAL_CONFIG_ID,
+    VITE_SUI_RPC_URL: import.meta.env.VITE_SUI_RPC_URL,
+  };
+}
+
+function readStorageObjectId(
+  env: Partial<ImportMetaEnv>,
+  options: ReadSupplyTerminalEnvOptions,
+): string {
+  const selectedStorageObjectId = options.storageObjectId?.trim();
+  if (selectedStorageObjectId) {
+    return selectedStorageObjectId;
+  }
+
+  if (env.VITE_APP_ENV === "local") {
+    return readRequiredEnv(env, "VITE_OBJECT_ID");
+  }
+
+  throw new Error(
+    "StorageUnit object selector is not configured. Use ?objectId=0x... or ?tenant=stillness&itemId=...",
+  );
+}
+
 export function createSupplyTerminalRpcClient(
   env: SupplyTerminalChainEnv = readSupplyTerminalEnv(),
 ): SuiJsonRpcClient {
@@ -71,6 +123,12 @@ export function createSupplyTerminalRpcClient(
     network: "localnet",
     url: env.rpcUrl,
   });
+}
+
+export function isSupplyTerminalExtensionAuthorized(
+  extension: string | null | undefined,
+): boolean {
+  return Boolean(extension?.includes(SUPPLY_TERMINAL_AUTH_SUFFIX));
 }
 
 export function parseInventoryItems(
@@ -112,8 +170,8 @@ export function selectInventoryForKey(
 export function validateSupplyTerminalListings(
   snapshot: SupplyTerminalChainSnapshot,
 ): SupplyTerminalPreflightView[] {
-  const extensionAuthorized = snapshot.storage.extension.includes(
-    SUPPLY_TERMINAL_AUTH_SUFFIX,
+  const extensionAuthorized = isSupplyTerminalExtensionAuthorized(
+    snapshot.storage.extension,
   );
 
   return snapshot.listings.map((listing) => {
@@ -140,6 +198,10 @@ export function validateSupplyTerminalListings(
         listing.paymentTypeId,
         listing.paymentQuantity,
       );
+    const buyerPaymentQuantity =
+      snapshot.buyerInventory.find(
+        (item) => item.typeId === listing.paymentTypeId,
+      )?.quantity ?? 0;
 
     return {
       listing,
@@ -147,6 +209,7 @@ export function validateSupplyTerminalListings(
       machineStockAvailable,
       listingEnabled: true,
       extensionAuthorized,
+      buyerPaymentQuantity,
       disabledReason: !extensionAuthorized
         ? "Extension authorization required"
         : !machineStockAvailable
@@ -166,7 +229,7 @@ export async function loadSupplyTerminalSnapshot({
   accountAddress,
 }: LoadSupplyTerminalSnapshotParams = {}): Promise<SupplyTerminalChainSnapshot> {
   const [storage, listings, inventories] = await Promise.all([
-    loadStorageUnit(client, env.storageObjectId),
+    loadStorageUnit(client, env.storageObjectId, env.worldPackageId),
     loadListingConfigs(client, env),
     loadInventories(client, env.storageObjectId),
   ]);
@@ -237,6 +300,99 @@ export function buildSupplyTerminalExchangeTransaction({
   return tx;
 }
 
+export function buildStorageUnitOwnerCapProbeTransaction({
+  env,
+  snapshot,
+  sender,
+}: BuildStorageUnitOwnerCapTransactionParams): Transaction {
+  const { tx, characterId, ownerCap, returnReceipt, storageUnitType } =
+    buildStorageUnitOwnerCapBorrow({ env, snapshot, sender });
+
+  tx.moveCall({
+    target: `${env.worldPackageId}::${CHARACTER_MODULE_TARGET}::return_owner_cap`,
+    typeArguments: [storageUnitType],
+    arguments: [tx.object(characterId), ownerCap, returnReceipt],
+  });
+
+  return tx;
+}
+
+export async function probeStorageUnitOwnerCapBorrow({
+  client,
+  env,
+  snapshot,
+  sender,
+}: ProbeStorageUnitOwnerCapBorrowParams): Promise<boolean> {
+  try {
+    const transactionBlock = buildStorageUnitOwnerCapProbeTransaction({
+      env,
+      snapshot,
+      sender,
+    });
+    const rpcClient = client ?? createSupplyTerminalRpcClient(env);
+    const result = await rpcClient.devInspectTransactionBlock({
+      sender,
+      transactionBlock,
+    });
+
+    return result.effects?.status?.status === "success";
+  } catch {
+    return false;
+  }
+}
+
+export function buildSupplyTerminalAuthorizeExtensionTransaction({
+  env,
+  snapshot,
+  sender,
+}: BuildStorageUnitOwnerCapTransactionParams): Transaction {
+  const { tx, characterId, ownerCap, returnReceipt, storageUnitType } =
+    buildStorageUnitOwnerCapBorrow({ env, snapshot, sender });
+
+  tx.moveCall({
+    target: `${env.worldPackageId}::${STORAGE_UNIT_MODULE_TARGET}::authorize_extension`,
+    typeArguments: [
+      `${env.supplyTerminalPackageId}::config::SupplyTerminalAuth`,
+    ],
+    arguments: [tx.object(snapshot.storage.id), ownerCap],
+  });
+
+  tx.moveCall({
+    target: `${env.worldPackageId}::${CHARACTER_MODULE_TARGET}::return_owner_cap`,
+    typeArguments: [storageUnitType],
+    arguments: [tx.object(characterId), ownerCap, returnReceipt],
+  });
+
+  return tx;
+}
+
+function buildStorageUnitOwnerCapBorrow({
+  env,
+  snapshot,
+  sender,
+}: BuildStorageUnitOwnerCapTransactionParams) {
+  const characterId =
+    snapshot.storage.ownerCharacterId ?? snapshot.character?.id;
+  if (!characterId) {
+    throw new Error("StorageUnit owner Character ID is not available");
+  }
+  if (!snapshot.storage.ownerCapId) {
+    throw new Error("StorageUnit OwnerCap ID is not available");
+  }
+
+  const tx = new Transaction();
+  tx.setSender(sender);
+
+  const storageUnitType = `${env.worldPackageId}::${STORAGE_UNIT_TYPE}`;
+  const [ownerCap, returnReceipt] = tx.moveCall({
+    target: `${env.worldPackageId}::${CHARACTER_MODULE_TARGET}::borrow_owner_cap`,
+    typeArguments: [storageUnitType],
+    arguments: [tx.object(characterId), tx.object(snapshot.storage.ownerCapId)],
+  });
+
+  return { tx, characterId, ownerCap, returnReceipt, storageUnitType };
+}
+
 async function loadListingConfigs(
   client: SuiJsonRpcClient,
   env: SupplyTerminalChainEnv,
@@ -278,6 +434,7 @@ async function loadListingConfigs(
 async function loadStorageUnit(
   client: SuiJsonRpcClient,
   storageObjectId: string,
+  worldPackageId: string,
 ): Promise<SupplyTerminalStorageSnapshot> {
   const result = await client.getObject({
     id: storageObjectId,
@@ -291,12 +448,46 @@ async function loadStorageUnit(
     );
   }
 
+  const ownerCapId = String(fields.owner_cap_id ?? "");
+
   return {
     id: storageObjectId,
-    ownerCapId: String(fields.owner_cap_id ?? ""),
+    ownerCapId,
+    ownerCharacterId: ownerCapId
+      ? await loadStorageOwnerCharacterId(client, worldPackageId, ownerCapId)
+      : null,
     status: getStatusVariant(fields.status) ?? "UNKNOWN",
     extension: getTypeName(fields.extension),
   };
+}
+
+async function loadStorageOwnerCharacterId(
+  client: SuiJsonRpcClient,
+  worldPackageId: string,
+  ownerCapId: string,
+): Promise<string | null> {
+  try {
+    const ownerCapObject = await client.getObject({
+      id: ownerCapId,
+      options: { showOwner: true },
+    });
+    const ownerId = readObjectOwnerAddress(ownerCapObject);
+    if (!ownerId) return null;
+
+    const ownerObject = await client.getObject({
+      id: ownerId,
+      options: { showType: true },
+    });
+
+    return hasMoveObjectType(
+      ownerObject,
+      `${worldPackageId}::${CHARACTER_TYPE}`,
+    )
+      ? ownerId
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 async function loadInventories(

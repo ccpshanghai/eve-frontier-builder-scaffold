@@ -37,8 +37,18 @@ export function TradeConfirmDialog({
     const cancelButtonRef = useRef<HTMLButtonElement>(null);
     const confirmButtonRef = useRef<HTMLButtonElement>(null);
     const previousFocusRef = useRef<HTMLElement | null>(null);
+    const initialStockRef = useRef<number | null | undefined>(null);
     const isOpen = Boolean(slot?.reward && slot.price);
     const canConfirm = Boolean(slot?.canTrade) && !submitting;
+
+    if (isOpen && initialStockRef.current === null) {
+        initialStockRef.current = slot?.machineStockQuantity;
+    }
+    if (!isOpen) {
+        initialStockRef.current = null;
+    }
+
+    const frozenStock = initialStockRef.current;
 
     useEffect(() => {
         if (!isOpen) {
@@ -152,10 +162,14 @@ export function TradeConfirmDialog({
                     <div className="st-modal__row">
                         <span>ON SUCCESS</span>
                         <span>
-                            {slot.machineStockQuantity != null &&
-                            slot.machineStockQuantity - slot.reward.quantity > 0
-                                ? `Stock: ${slot.machineStockQuantity - slot.reward.quantity}`
-                                : `${slotLabel} becomes EMPTY`}
+                            {(() => {
+                                if (frozenStock == null) {
+                                    return `${slotLabel} becomes EMPTY`;
+                                }
+                                const remaining = frozenStock - slot.reward.quantity;
+                                const to = remaining > 0 ? String(remaining) : "EMPTY";
+                                return `${frozenStock} → ${to}`;
+                            })()}
                         </span>
                     </div>
 

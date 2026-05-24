@@ -26,11 +26,13 @@ interface SupplyTerminalStorageStateData {
 }
 
 export interface SupplyTerminalStorageState extends SupplyTerminalStorageStateData {
-  refetch: () => Promise<void>;
+  refetch: () => Promise<SupplyTerminalChainSnapshot | null>;
 }
 
 type SupplyTerminalStorageOptions = {
   accountAddress?: string | null;
+  storageObjectId?: string | null;
+  enabled?: boolean;
 };
 
 type StateCommit = Dispatch<SetStateAction<SupplyTerminalStorageStateData>>;
@@ -46,12 +48,18 @@ const INITIAL_STATE: SupplyTerminalStorageStateData = {
 
 export function useSupplyTerminalStorage({
   accountAddress,
+  storageObjectId,
+  enabled = true,
 }: SupplyTerminalStorageOptions = {}): SupplyTerminalStorageState {
   const [state, setState] =
     useState<SupplyTerminalStorageStateData>(INITIAL_STATE);
 
   const load = useCallback(
     async (initial: boolean, commit: StateCommit = setState) => {
+      if (!enabled) {
+        return null;
+      }
+
       commit((previousState) => ({
         ...previousState,
         loading: initial,
@@ -60,7 +68,9 @@ export function useSupplyTerminalStorage({
       }));
 
       try {
-        const env = readSupplyTerminalEnv();
+        const env = readSupplyTerminalEnv(undefined, {
+          storageObjectId,
+        });
         const client = createSupplyTerminalRpcClient(env);
         const snapshot = await loadSupplyTerminalSnapshot({
           env,
@@ -76,6 +86,7 @@ export function useSupplyTerminalStorage({
           error: null,
           env,
         });
+        return snapshot;
       } catch (err) {
         commit({
           snapshot: null,
@@ -85,12 +96,17 @@ export function useSupplyTerminalStorage({
           error: err instanceof Error ? err.message : String(err),
           env: null,
         });
+        return null;
       }
     },
-    [accountAddress],
+    [accountAddress, enabled, storageObjectId],
   );
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     let ignore = false;
     const commit: StateCommit = (value) => {
       if (!ignore) {
@@ -103,10 +119,10 @@ export function useSupplyTerminalStorage({
     return () => {
       ignore = true;
     };
-  }, [load]);
+  }, [enabled, load]);
 
   const refetch = useCallback(async () => {
-    await load(false);
+    return load(false);
   }, [load]);
 
   return {

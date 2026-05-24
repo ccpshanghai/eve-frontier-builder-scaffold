@@ -19,6 +19,7 @@ export interface SupplyTerminalInventorySnapshot {
 export interface SupplyTerminalStorageSnapshot {
   id: string;
   ownerCapId: string;
+  ownerCharacterId?: string | null;
   status: string;
   extension: string;
 }
@@ -43,6 +44,7 @@ export interface SupplyTerminalPreflightView {
   listingEnabled: boolean;
   extensionAuthorized: boolean;
   disabledReason?: string;
+  buyerPaymentQuantity?: number;
 }
 
 export interface SupplyTerminalChainEnv {
@@ -96,6 +98,7 @@ export interface SupplyTerminalSlot {
   canTrade: boolean;
   disabledReason?: string;
   machineStockQuantity?: number;
+  paymentOwnedQuantity?: number;
 }
 
 export interface BuildSupplyTerminalSlotsInput {
@@ -104,4 +107,5 @@ export interface BuildSupplyTerminalSlotsInput {
   soldProductTypeIds?: readonly number[];
   walletConnected?: boolean;
   machineInventory?: SupplyTerminalInventoryItem[];
+  buyerInventory?: SupplyTerminalInventoryItem[];
 }

@@ -11,6 +11,8 @@ function truncateDigest(digest: string) {
 export function EventLog({ events }: EventLogProps) {
     if (events.length === 0) return null;
 
+    const recent = events.slice(-5);
+
     return (
         <section className="st-panel st-event-log" aria-labelledby="st-event-log-title">
             <header className="st-panel__head">
@@ -32,7 +34,7 @@ export function EventLog({ events }: EventLogProps) {
                 aria-relevant="additions text"
                 aria-labelledby="st-event-log-title"
             >
-                {events.map((event, i) => (
+                {recent.map((event, i) => (
                     <div key={`${event.timestamp}-${i}`} className={`st-event-log__line st-event-log__line--${event.type}`}>
                         &gt; {event.message}
                         {event.digest && <span className="st-event-log__digest"> {truncateDigest(event.digest)}</span>}

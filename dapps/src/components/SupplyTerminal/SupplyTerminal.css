@@ -387,7 +387,7 @@
 .st-slot__detail {
     margin-top: 7px;
     color: #bdb29a;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.35;
     overflow-wrap: anywhere;
 }
@@ -434,7 +434,14 @@
 
 .st-slot__action {
     display: flex;
+    flex-direction: column;
     margin-top: 12px;
+    gap: 4px;
+}
+
+.st-slot__action .st-slot__detail {
+    margin-top: 0;
+    text-align: center;
 }
 
 .st-slot__action .st-button {

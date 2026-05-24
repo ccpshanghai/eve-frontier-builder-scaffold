@@ -1,20 +1,35 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConnection } from "@evefrontier/dapp-kit";
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react";
 import {
+  buildSupplyTerminalAuthorizeExtensionTransaction,
   buildSupplyTerminalExchangeTransaction,
+  isSupplyTerminalExtensionAuthorized,
+  probeStorageUnitOwnerCapBorrow,
   validateSupplyTerminalListings,
 } from "./chain";
+import { AuthorizeExtensionDialog } from "./AuthorizeExtensionDialog";
 import { buildSupplyTerminalSlots } from "./slots";
 import { SupplyTerminalView } from "./SupplyTerminalView";
 import type { ExchangeEvent, SupplyTerminalSlot } from "./types";
 import { useSupplyTerminalStorage } from "./storage";
 import "./SupplyTerminal.css";
 
-export function SupplyTerminal() {
+export interface SupplyTerminalProps {
+  storageObjectId?: string | null;
+  storageObjectIdLoading?: boolean;
+  storageObjectIdError?: string | null;
+}
+
+export function SupplyTerminal({
+  storageObjectId = null,
+  storageObjectIdLoading = false,
+  storageObjectIdError = null,
+}: SupplyTerminalProps = {}) {
   const { isConnected } = useConnection();
   const account = useCurrentAccount();
   const dAppKit = useDAppKit();
+  const storageSelectorReady = !storageObjectIdLoading && !storageObjectIdError;
   const {
     snapshot,
     storage,
@@ -25,6 +40,8 @@ export function SupplyTerminal() {
     refetch,
   } = useSupplyTerminalStorage({
     accountAddress: account?.address,
+    storageObjectId,
+    ...(storageSelectorReady ? {} : { enabled: false }),
   });
 
   const [events, setEvents] = useState<ExchangeEvent[]>([
@@ -38,8 +55,16 @@ export function SupplyTerminal() {
     useState<SupplyTerminalSlot | null>(null);
   const [tradeSubmitting, setTradeSubmitting] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [isStorageOwner, setIsStorageOwner] = useState(false);
+  const [authorizeDialogOpen, setAuthorizeDialogOpen] = useState(false);
+  const [authorizeError, setAuthorizeError] = useState<string | null>(null);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const tradeInFlightRef = useRef(false);
+  const authorizationProbeKeyRef = useRef<string | null>(null);
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   const walletConnected = isConnected && Boolean(account);
   const preflightViews = useMemo(
@@ -48,10 +73,8 @@ export function SupplyTerminal() {
   );
   const extensionAuthorized =
     preflightViews[0]?.extensionAuthorized ??
-    Boolean(
-      snapshot?.storage.extension.includes("::config::SupplyTerminalAuth"),
-    );
-  const owner = false;
+    isSupplyTerminalExtensionAuthorized(snapshot?.storage.extension);
+  const owner = isStorageOwner && !authorizeDialogOpen;
 
   const addEvent = useCallback((event: Omit<ExchangeEvent, "timestamp">) => {
     setEvents((previousEvents) => [
@@ -59,6 +82,81 @@ export function SupplyTerminal() {
       { ...event, timestamp: Date.now() },
     ]);
   }, []);
+
+  useEffect(() => {
+    if (extensionAuthorized) {
+      setAuthorizeDialogOpen(false);
+      setAuthorizeError(null);
+      return;
+    }
+
+    if (
+      !walletConnected ||
+      !account ||
+      !env ||
+      !snapshot ||
+      storage?.status !== "ONLINE"
+    ) {
+      return;
+    }
+
+    const probeKey = [
+      account.address,
+      snapshot.storage.id,
+      snapshot.storage.ownerCapId,
+      snapshot.storage.ownerCharacterId,
+      snapshot.storage.extension,
+    ].join(":");
+
+    if (authorizationProbeKeyRef.current === probeKey) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const ownerCapAvailable = await probeStorageUnitOwnerCapBorrow({
+        env,
+        snapshot,
+        sender: account.address,
+      });
+
+      if (cancelled) return;
+      authorizationProbeKeyRef.current = probeKey;
+
+      if (!ownerCapAvailable) {
+        const message =
+          "Connected wallet is not the StorageUnit owner; extension authorization skipped";
+        setIsStorageOwner(false);
+        console.info(message);
+        addEvent({
+          type: "local",
+          message,
+        });
+        return;
+      }
+
+      setIsStorageOwner(true);
+      setAuthorizeError(null);
+      setAuthorizeDialogOpen(true);
+      addEvent({
+        type: "local",
+        message: "StorageUnit owner detected; extension authorization required",
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    account,
+    addEvent,
+    env,
+    extensionAuthorized,
+    snapshot,
+    storage?.status,
+    walletConnected,
+  ]);
 
   const slots = useMemo(
     () =>
@@ -68,7 +166,13 @@ export function SupplyTerminal() {
         walletConnected,
         machineInventory: snapshot?.machineInventory,
       }),
-    [preflightViews, storageRefreshing, tradeSubmitting, walletConnected, snapshot],
+    [
+      preflightViews,
+      storageRefreshing,
+      tradeSubmitting,
+      walletConnected,
+      snapshot,
+    ],
   );
   const currentSelectedTradeSlot = useMemo(
     () =>
@@ -97,7 +201,8 @@ export function SupplyTerminal() {
       type: "local",
       message: "Trade confirmation cancelled",
     });
-  }, [addEvent]);
+    void refetch();
+  }, [addEvent, refetch]);
 
   const handleConfirmTrade = useCallback(
     async (slot: SupplyTerminalSlot) => {
@@ -165,7 +270,6 @@ export function SupplyTerminal() {
         });
         const digest = (result as Record<string, unknown>).digest;
 
-        setSelectedTradeSlot(null);
         addEvent({
           type: "chain",
           message: "Exchange submitted",
@@ -176,22 +280,45 @@ export function SupplyTerminal() {
           message: "Exchange complete",
           ...(typeof digest === "string" ? { digest } : {}),
         });
-        try {
-          await refetch();
-          addEvent({
-            type: "local",
-            message: `${slot.label} refreshed`,
-          });
-        } catch (refreshError) {
-          addEvent({
-            type: "local",
-            message: `Refresh failed: ${
-              refreshError instanceof Error
-                ? refreshError.message
-                : String(refreshError)
-            }`,
-          });
+
+        const preTradeStock = currentSlot.machineStockQuantity;
+        const productTypeId = currentSlot.productTypeId;
+
+        const maxAttempts = 20;
+        const delayMs = 500;
+
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          try {
+            await refetch();
+          } catch {
+            // refetch handles errors internally, continue polling
+          }
+
+          const latest = snapshotRef.current;
+          if (latest && preTradeStock != null && productTypeId != null) {
+            const item = latest.machineInventory.find(
+              (entry) => entry.typeId === productTypeId,
+            );
+            const newStock = item?.quantity ?? 0;
+            if (newStock !== preTradeStock) {
+              addEvent({
+                type: "local",
+                message: `${slot.label} stock confirmed`,
+              });
+              break;
+            }
+          }
+
+          if (i === maxAttempts - 1) {
+            addEvent({
+              type: "local",
+              message: `${slot.label} stock may be stale`,
+            });
+          }
         }
+
+        setSelectedTradeSlot(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
 
@@ -219,20 +346,99 @@ export function SupplyTerminal() {
     ],
   );
 
-  const handleAuthorize = useCallback(async () => {
-    if (!account || !walletConnected) return;
+  const handleAuthorize = useCallback(() => {
+    setAuthorizeError(null);
+    setAuthorizeDialogOpen(true);
+  }, []);
+
+  const handleCancelAuthorize = useCallback(() => {
+    setAuthorizeDialogOpen(false);
+    setAuthorizeError(null);
+    addEvent({
+      type: "local",
+      message: "Extension authorization cancelled",
+    });
+    void refetch();
+  }, [addEvent, refetch]);
+
+  const handleConfirmAuthorize = useCallback(async () => {
+    if (!account || !env || !snapshot || !walletConnected || isAuthorizing) {
+      return;
+    }
 
     setIsAuthorizing(true);
+    setAuthorizeError(null);
+    addEvent({
+      type: "local",
+      message: "Awaiting wallet confirmation",
+    });
 
     try {
+      const tx = buildSupplyTerminalAuthorizeExtensionTransaction({
+        env,
+        snapshot,
+        sender: account.address,
+      });
+
+      const result = await dAppKit.signAndExecuteTransaction({
+        transaction: tx,
+      });
+      const digest = (result as Record<string, unknown>).digest;
+
+      addEvent({
+        type: "chain",
+        message: "Extension authorization submitted",
+        ...(typeof digest === "string" ? { digest } : {}),
+      });
+
+      const maxAttempts = 20;
+      const delayMs = 500;
+
+      for (let i = 0; i < maxAttempts; i++) {
+        if (i > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+
+        const latest = await refetch();
+        if (isSupplyTerminalExtensionAuthorized(latest?.storage.extension)) {
+          addEvent({
+            type: "chain",
+            message: "Extension authorization confirmed",
+            ...(typeof digest === "string" ? { digest } : {}),
+          });
+          setAuthorizeDialogOpen(false);
+          setAuthorizeError(null);
+          return;
+        }
+      }
+
+      const message = "Extension authorization not confirmed yet";
+      setAuthorizeError(message);
       addEvent({
         type: "local",
-        message: "Authorization must be run from the admin script",
+        message,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+
+      setAuthorizeError(message);
+      addEvent({
+        type: "local",
+        message: `Extension authorization failed: ${message}`,
       });
     } finally {
       setIsAuthorizing(false);
     }
-  }, [account, addEvent, walletConnected]);
+  }, [
+    account,
+    addEvent,
+    dAppKit,
+    env,
+    isAuthorizing,
+    refetch,
+    snapshot,
+    walletConnected,
+  ]);
 
   const handleConfigure = useCallback(() => {
     addEvent({
@@ -241,8 +447,14 @@ export function SupplyTerminal() {
     });
   }, [addEvent]);
 
-  if (storageLoading) {
+  if (storageObjectIdLoading || storageLoading) {
     return <div className="st-screen-message">Loading storage...</div>;
+  }
+
+  if (storageObjectIdError) {
+    return (
+      <div className="st-screen-message">Error: {storageObjectIdError}</div>
+    );
   }
 
   if (storageError) {
@@ -254,21 +466,31 @@ export function SupplyTerminal() {
   }
 
   return (
-    <SupplyTerminalView
-      isOwner={owner}
-      extensionAuthorized={extensionAuthorized}
-      isAuthorizing={isAuthorizing}
-      storageStatus={storage.status}
-      slots={slots}
-      events={events}
-      selectedTradeSlot={currentSelectedTradeSlot}
-      tradeSubmitting={tradeSubmitting}
-      tradeError={tradeError}
-      onAuthorize={handleAuthorize}
-      onConfigure={handleConfigure}
-      onOpenTrade={handleOpenTrade}
-      onCancelTrade={handleCancelTrade}
-      onConfirmTrade={handleConfirmTrade}
-    />
+    <>
+      <SupplyTerminalView
+        isOwner={owner}
+        extensionAuthorized={extensionAuthorized}
+        isAuthorizing={isAuthorizing}
+        storageStatus={storage.status}
+        slots={slots}
+        events={events}
+        selectedTradeSlot={currentSelectedTradeSlot}
+        tradeSubmitting={tradeSubmitting}
+        tradeError={tradeError}
+        onAuthorize={handleAuthorize}
+        onConfigure={handleConfigure}
+        onOpenTrade={handleOpenTrade}
+        onCancelTrade={handleCancelTrade}
+        onConfirmTrade={handleConfirmTrade}
+      />
+      <AuthorizeExtensionDialog
+        open={authorizeDialogOpen}
+        submitting={isAuthorizing}
+        error={authorizeError}
+        storageId={storage.id}
+        onCancel={handleCancelAuthorize}
+        onConfirm={handleConfirmAuthorize}
+      />
+    </>
   );
 }

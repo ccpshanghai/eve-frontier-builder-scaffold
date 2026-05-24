@@ -18,7 +18,8 @@
         "authorise-supply-terminal": "tsx ts-scripts/supply_terminal_extension/authorise-extension.ts",
         "seed-supply-terminal-inventory": "tsx ts-scripts/supply_terminal_extension/seed-inventory.ts",
         "seed-supply-terminal-payment": "tsx ts-scripts/supply_terminal_extension/seed-payment.ts",
-        "supply-terminal-exchange": "tsx ts-scripts/supply_terminal_extension/exchange.ts"
+        "supply-terminal-exchange": "tsx ts-scripts/supply_terminal_extension/exchange.ts",
+        "online-supply-terminal-storage": "tsx ts-scripts/supply_terminal_extension/online-storage.ts"
     },
     "dependencies": {
         "@mysten/sui": "^2.0.0",

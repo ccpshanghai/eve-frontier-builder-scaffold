@@ -75,3 +75,20 @@ pnpm seed-supply-terminal-payment
 # 5. Execute test exchange (player)
 SUPPLY_TERMINAL_EXCHANGE_PRODUCT_TYPE_ID=84210 pnpm supply-terminal-exchange
 ```
+
+## Localnet Storage Units
+
+| 用途 | Item ID | Object ID | OwnerCap ID | 状态 |
+|------|---------|-----------|-------------|------|
+| Supply Terminal (已配置) | `888800006` | `0x371f219e428fbf1bb8d8f921a1643c8eeb347c4739113b8e27828d2b86020024` | `0xc34611257c564c3547e601fc5286170bca15eed8f25dcef9cc7f14c046d3bbc5` | online, extension 已授权, inventory 已填充 |
+| 干净测试 (无 extension) | `888800007` | `0x97035c98f9a3debc5de4a0e3c50748f2718f7a7ebdfa91f33337e9f684de00d7` | `0x3b865911860c4150f3ad492ccbe6bc1e963b15d2ebb78baf26790eaecdcbaf44` | online, 无 extension, 无 inventory |
+
+两个 StorageUnit 的 OwnerCap 均归 Character（item ID `811880`，`0x87bc...5583`）持有。链上操作使用 `PLAYER_A_PRIVATE_KEY`。
+
+切换到不同 StorageUnit：
+```bash
+# 已配置的 Supply Terminal
+STORAGE_UNIT_ITEM_ID=888800006 pnpm <script>
+# 干净的测试 StorageUnit
+STORAGE_UNIT_ITEM_ID=888800007 pnpm <script>
+```
