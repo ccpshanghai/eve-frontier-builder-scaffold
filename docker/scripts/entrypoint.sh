@@ -167,7 +167,7 @@ for alias in ADMIN PLAYER_A PLAYER_B; do
     sui client faucet 2>&1 && break
     [ "$attempt" -eq 3 ] && {
       echo "[sui-dev] Faucet failed for $alias" >&2
-      exit 1
+      # exit 1
     }
     sleep 2
   done
