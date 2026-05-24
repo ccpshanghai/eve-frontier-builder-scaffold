@@ -36,7 +36,7 @@ describe("VendingSlot", () => {
         expect(screen.getByText("READY")).toBeDefined();
         expect(screen.getByText("Carbon Weave")).toBeDefined();
         expect(screen.getByText("Stock: 1 / 1")).toBeDefined();
-        expect(screen.getByText("Price: Feldspar Crystals x10")).toBeDefined();
+        expect(screen.getByText("Price: Feldspar Crystals 10")).toBeDefined();
 
         const button = screen.getByRole("button", { name: "TRADE" });
         expect(button.hasAttribute("disabled")).toBe(false);

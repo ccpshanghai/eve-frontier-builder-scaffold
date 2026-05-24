@@ -157,6 +157,7 @@ describe("Supply Terminal chain adapter", () => {
         machineStockAvailable: true,
         listingEnabled: true,
         extensionAuthorized: true,
+        buyerPaymentQuantity: 10,
         disabledReason: undefined,
       },
     ]);

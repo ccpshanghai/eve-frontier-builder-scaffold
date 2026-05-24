@@ -78,15 +78,15 @@ export function VendingSlot({ slot, onTrade }: VendingSlotProps) {
                             Stock: {slot.reward?.quantity ?? 0}{slot.machineStockQuantity != null ? ` / ${slot.machineStockQuantity}` : ""}
                         </div>
                     )}
-                    {!isEmpty && (
-                        <div className="st-slot__detail">
-                            Price: {slot.price?.name ?? "--"} x{slot.price?.quantity ?? 0}
-                        </div>
-                    )}
                 </div>
             </div>
 
             <div className="st-slot__action">
+                {!isEmpty && (
+                    <div className="st-slot__detail">
+                        Price: {slot.price?.name ?? "--"} {slot.price?.quantity ?? 0}{slot.paymentOwnedQuantity != null ? ` / ${slot.paymentOwnedQuantity}` : ""}
+                    </div>
+                )}
                 <button
                     type="button"
                     className="st-button"

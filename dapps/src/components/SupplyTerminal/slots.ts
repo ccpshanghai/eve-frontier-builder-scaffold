@@ -124,6 +124,7 @@ function createActiveSlot(
     canTrade: status === "ready",
     disabledReason: blockedState?.disabledReason,
     machineStockQuantity,
+    paymentOwnedQuantity: preflight.buyerPaymentQuantity,
   };
 }
 

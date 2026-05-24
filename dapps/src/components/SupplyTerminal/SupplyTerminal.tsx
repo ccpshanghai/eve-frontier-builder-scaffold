@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConnection } from "@evefrontier/dapp-kit";
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react";
 import {
@@ -40,6 +40,10 @@ export function SupplyTerminal() {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const tradeInFlightRef = useRef(false);
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   const walletConnected = isConnected && Boolean(account);
   const preflightViews = useMemo(
@@ -97,7 +101,8 @@ export function SupplyTerminal() {
       type: "local",
       message: "Trade confirmation cancelled",
     });
-  }, [addEvent]);
+    void refetch();
+  }, [addEvent, refetch]);
 
   const handleConfirmTrade = useCallback(
     async (slot: SupplyTerminalSlot) => {
@@ -165,7 +170,6 @@ export function SupplyTerminal() {
         });
         const digest = (result as Record<string, unknown>).digest;
 
-        setSelectedTradeSlot(null);
         addEvent({
           type: "chain",
           message: "Exchange submitted",
@@ -176,22 +180,45 @@ export function SupplyTerminal() {
           message: "Exchange complete",
           ...(typeof digest === "string" ? { digest } : {}),
         });
-        try {
-          await refetch();
-          addEvent({
-            type: "local",
-            message: `${slot.label} refreshed`,
-          });
-        } catch (refreshError) {
-          addEvent({
-            type: "local",
-            message: `Refresh failed: ${
-              refreshError instanceof Error
-                ? refreshError.message
-                : String(refreshError)
-            }`,
-          });
+
+        const preTradeStock = currentSlot.machineStockQuantity;
+        const productTypeId = currentSlot.productTypeId;
+
+        const maxAttempts = 20;
+        const delayMs = 500;
+
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          try {
+            await refetch();
+          } catch {
+            // refetch handles errors internally, continue polling
+          }
+
+          const latest = snapshotRef.current;
+          if (latest && preTradeStock != null && productTypeId != null) {
+            const item = latest.machineInventory.find(
+              (entry) => entry.typeId === productTypeId,
+            );
+            const newStock = item?.quantity ?? 0;
+            if (newStock !== preTradeStock) {
+              addEvent({
+                type: "local",
+                message: `${slot.label} stock confirmed`,
+              });
+              break;
+            }
+          }
+
+          if (i === maxAttempts - 1) {
+            addEvent({
+              type: "local",
+              message: `${slot.label} stock may be stale`,
+            });
+          }
         }
+
+        setSelectedTradeSlot(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
 

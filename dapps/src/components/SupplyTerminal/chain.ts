@@ -140,6 +140,10 @@ export function validateSupplyTerminalListings(
         listing.paymentTypeId,
         listing.paymentQuantity,
       );
+    const buyerPaymentQuantity =
+      snapshot.buyerInventory.find(
+        (item) => item.typeId === listing.paymentTypeId,
+      )?.quantity ?? 0;
 
     return {
       listing,
@@ -147,6 +151,7 @@ export function validateSupplyTerminalListings(
       machineStockAvailable,
       listingEnabled: true,
       extensionAuthorized,
+      buyerPaymentQuantity,
       disabledReason: !extensionAuthorized
         ? "Extension authorization required"
         : !machineStockAvailable
