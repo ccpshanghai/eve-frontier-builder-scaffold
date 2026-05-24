@@ -7,3 +7,8 @@ world = { local = "../../../world-contracts/contracts/world" }
 
 [addresses]
 supply_terminal_extension = "0x0"
+
+[environments]
+testnet_internal = "4c78adac"
+testnet_utopia = "4c78adac"
+testnet_stillness = "4c78adac"
