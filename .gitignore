@@ -20,3 +20,10 @@ dapps/frontend
 
 .pnpm-store/
 move-contracts/**/build/**/
+
+dist/
+
+.superpowers/brainstorm/
+.playwright-cli/
+.test-results/
+test-results/

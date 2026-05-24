@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supply Terminal Dev"
+  short_description: "Inspect Supply Terminal local deployments"
+  default_prompt: "Use $supply-terminal-dev to inspect the local Supply Terminal deployment and configuration."

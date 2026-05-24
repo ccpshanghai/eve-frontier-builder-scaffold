@@ -1,3 +1,7 @@
+# Dapp environment. Use "local" only for disposable localnet development.
+# Non-local values use the normal EveFrontierProvider path.
+VITE_APP_ENV=
+
 # Change the following to the preferred smart assembly
 # If defined, this will take priority over values passed via URL query param
 VITE_OBJECT_ID=
@@ -5,4 +9,18 @@ VITE_OBJECT_ID=
 # World package id
 VITE_EVE_WORLD_PACKAGE_ID="0xf115375112eab1dcc1bb4af81a37d47ca7e95c2eb990cefa1f12f82d689e9543"
 
+# Supply Terminal extension package and shared config object.
+VITE_SUPPLY_TERMINAL_PACKAGE_ID=
+VITE_SUPPLY_TERMINAL_CONFIG_ID=
+
+# Optional world object registry id for scripts or local diagnostics.
+VITE_WORLD_OBJECT_REGISTRY_ID=
+
 VITE_SUI_GRAPHQL_ENDPOINT="https://graphql.testnet.sui.io/graphql"
+
+# Localnet JSON-RPC endpoint used by the custom local dapp-kit provider.
+VITE_SUI_RPC_URL="http://127.0.0.1:9000"
+
+# Localnet-only dev wallet. Never use real testnet/mainnet keys here.
+# Switching this key switches the local player wallet.
+# VITE_PLAYER_PRIVATE_KEY=
