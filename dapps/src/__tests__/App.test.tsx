@@ -26,6 +26,8 @@ describe("App", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
     vi.stubEnv("VITE_APP_ENV", "testnet");
+    vi.stubEnv("VITE_EVE_WORLD_PACKAGE_ID", "");
+    vi.stubEnv("VITE_WORLD_OBJECT_REGISTRY_ID", "");
     mocks.useSmartObject.mockReturnValue({
       assembly: null,
       loading: false,
@@ -74,6 +76,36 @@ describe("App", () => {
 
     expect(renderedSupplyTerminalProps()).toMatchObject({
       storageObjectId: "0xassembly",
+    });
+  });
+
+  it("derives the storage object id from tenant and itemId without waiting for wallet-backed smart object loading", () => {
+    vi.stubEnv(
+      "VITE_EVE_WORLD_PACKAGE_ID",
+      "0x28b497559d65ab320d9da4613bf2498d5946b2c0ae3597ccfda3072ce127448c",
+    );
+    vi.stubEnv(
+      "VITE_WORLD_OBJECT_REGISTRY_ID",
+      "0x454a9aa3d37e1d08d3c9181239c1b683781e4087fbbbd48c935d54b6736fd05c",
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/?tenant=stillness&itemId=1000000391647",
+    );
+    mocks.useSmartObject.mockReturnValue({
+      assembly: null,
+      loading: true,
+      error: null,
+    });
+
+    render(<App />);
+
+    expect(renderedSupplyTerminalProps()).toMatchObject({
+      storageObjectId:
+        "0xdfbe83ecb11d1d630c7c53a0c6eef84cfada670e143d6923445fd8a17aa7ec9e",
+      storageObjectIdLoading: false,
+      storageObjectIdError: null,
     });
   });
 
